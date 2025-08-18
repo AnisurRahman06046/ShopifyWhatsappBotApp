@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Register Messenger Shop</title>
+    <style>
+      /* same styling as before */
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>Register a Messenger Shop</h2>
+      <form id="shopForm">
+        <input type="text" id="name" placeholder="Shop Name" required />
+        <input type="text" id="page_id" placeholder="Page ID" required />
+        <input
+          type="text"
+          id="page_access_token"
+          placeholder="Page Access Token"
+          required
+        />
+        <button type="submit">Register Shop</button>
+      </form>
+      <div class="message" id="message"></div>
+    </div>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+
+      document
+        .getElementById("shopForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+
+          if (!code) {
+            alert("Missing Bitcommerz authorization code in URL.");
+            return;
+          }
+
+          const data = {
+            name: document.getElementById("name").value,
+            page_id: document.getElementById("page_id").value,
+            page_access_token:
+              document.getElementById("page_access_token").value,
+            code: code,
+          };
+
+          const res = await fetch("/shops", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+
+          const msgDiv = document.getElementById("message");
+
+          if (res.ok) {
+            const json = await res.json();
+            const webhookUrl = `https://d0be50a30c62.ngrok-free.app/webhook`; // <- change as needed
+
+            msgDiv.style.color = "green";
+            msgDiv.innerHTML = `
+            ✅ <strong>Messenger Shop Registered!</strong><br />
+            🆔 <strong>Shop ID:</strong> <code>${json.id}</code><br />
+            🔐 <strong>Verify Token:</strong> <code id="token">${json.verify_token}</code><br />
+            <button id="copyTokenBtn">📋 Copy Verify Token</button><br /><br />
+            🔗 <strong>Webhook URL:</strong><br />
+            <code id="webhookUrl">${webhookUrl}</code><br />
+            <button id="copyWebhookBtn">📋 Copy Webhook URL</button><br /><br />
+            📌 <em>Use this in your Messenger webhook settings.</em>
+          `;
+
+            document
+              .getElementById("copyWebhookBtn")
+              .addEventListener("click", () => {
+                navigator.clipboard.writeText(webhookUrl);
+                alert("✅ Webhook URL copied to clipboard!");
+              });
+
+            document
+              .getElementById("copyTokenBtn")
+              .addEventListener("click", () => {
+                navigator.clipboard.writeText(json.verify_token);
+                alert("✅ Verify Token copied to clipboard!");
+              });
+          } else {
+            const err = await res.text();
+            msgDiv.style.color = "red";
+            msgDiv.innerText = "❌ Error: " + err;
+          }
+        });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Register Bot App Credentials</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 40px;
+        background: #f9f9f9;
+      }
+      .container {
+        max-width: 500px;
+        margin: auto;
+        padding: 30px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 0 10px #ccc;
+      }
+      input,
+      button {
+        width: 100%;
+        margin: 10px 0;
+        padding: 10px;
+        font-size: 16px;
+      }
+      button {
+        background: #0084ff;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #006fd6;
+      }
+      .message {
+        margin-top: 20px;
+        font-weight: bold;
+        white-space: pre-line;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Register Bot App Credentials</h1>
+      <form id="botAppForm">
+        <input type="text" id="name" placeholder="App Name" required />
+        <input type="text" id="client_id" placeholder="Client ID" required />
+        <input
+          type="text"
+          id="client_secret"
+          placeholder="Client Secret"
+          required
+        />
+        <input
+          type="url"
+          id="redirect_uri"
+          placeholder="Redirect URI"
+          required
+        />
+        <button type="submit">Save</button>
+      </form>
+      <div class="message" id="message"></div>
+    </div>
+
+    <script>
+      document
+        .getElementById("botAppForm")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+
+          const data = {
+            name: document.getElementById("name").value,
+            client_id: document.getElementById("client_id").value,
+            client_secret: document.getElementById("client_secret").value,
+            redirect_uri: document.getElementById("redirect_uri").value,
+          };
+
+          const msgDiv = document.getElementById("message");
+
+          try {
+            const res = await fetch("/botapp/register", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            });
+
+            if (res.ok) {
+              msgDiv.style.color = "green";
+              msgDiv.textContent = "✅ Bot App credentials saved successfully!";
+              this.reset();
+            } else {
+              const errorText = await res.text();
+              msgDiv.style.color = "red";
+              msgDiv.textContent = "❌ Error: " + errorText;
+            }
+          } catch (err) {
+            msgDiv.style.color = "red";
+            msgDiv.textContent = "❌ Network or server error.";
+          }
+        });
+    </script>
+  </body>
+</html>
