@@ -1,0 +1,65 @@
+{
+  "name": "WhatsApp Shopping Bot",
+  "description": "Enable WhatsApp shopping for your Shopify store. Customers can browse products, manage cart, and checkout directly through WhatsApp conversations.",
+  "version": "1.0.0",
+  "keywords": [
+    "whatsapp",
+    "shopping",
+    "chat",
+    "customer-service",
+    "automation",
+    "messaging",
+    "ecommerce"
+  ],
+  "website": "https://sc.ecommercexpart.com",
+  "repository": "https://github.com/yourusername/whatsapp-shopify-bot",
+  "logo": "https://sc.ecommercexpart.com/static/logo.png",
+  "success_url": "/shopify/admin",
+  "env": {
+    "DATABASE_URL": {
+      "description": "PostgreSQL database URL",
+      "required": true
+    },
+    "SHOPIFY_API_KEY": {
+      "description": "Shopify API Key from Partners Dashboard",
+      "required": true
+    },
+    "SHOPIFY_API_SECRET": {
+      "description": "Shopify API Secret from Partners Dashboard",
+      "required": true
+    },
+    "SECRET_KEY": {
+      "description": "Application secret key for security",
+      "generator": "secret"
+    },
+    "WEBHOOK_SECRET": {
+      "description": "Webhook verification secret",
+      "generator": "secret"
+    },
+    "REDIRECT_URI": {
+      "description": "Application base URL",
+      "value": "https://sc.ecommercexpart.com"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "addons": [
+    {
+      "plan": "heroku-postgresql:mini"
+    },
+    {
+      "plan": "heroku-redis:mini"
+    }
+  ],
+  "scripts": {
+    "postdeploy": "alembic upgrade head"
+  }
+}

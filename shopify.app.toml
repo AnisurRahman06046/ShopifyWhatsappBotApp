@@ -1,0 +1,54 @@
+# Shopify App Configuration
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration
+
+name = "WhatsApp Shopping Bot"
+client_id = "your_client_id_here"
+application_url = "https://sc.ecommercexpart.com"
+embedded = true
+
+[access_scopes]
+# Required scopes for WhatsApp Shopping Bot
+scopes = "read_products,read_orders,write_orders,read_customers,write_customers,write_draft_orders,read_inventory,write_inventory"
+
+[auth]
+redirect_urls = [
+  "https://sc.ecommercexpart.com/shopify/callback",
+  "https://sc.ecommercexpart.com/shopify/auth/callback"
+]
+
+[webhooks]
+api_version = "2024-01"
+
+# App Proxy for frontend integration (optional)
+[app_proxy]
+url = "https://sc.ecommercexpart.com/proxy"
+subpath = "whatsapp-bot"
+prefix = "apps"
+
+# POS integration (disabled for this app)
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "testratultoto.myshopify.com"
+include_config_on_deploy = true
+
+# Extension points
+[extensions]
+
+  [extensions.checkout]
+  metafield_identifiers = []
+
+# App-specific configuration
+[app_preferences]
+privacy_policy_url = "https://sc.ecommercexpart.com/privacy"
+support_email = "support@ecommercexpart.com"
+support_url = "https://sc.ecommercexpart.com/support"
+terms_of_service_url = "https://sc.ecommercexpart.com/terms"
+
+# App metadata
+[app_metadata]
+description = "Enable WhatsApp shopping for your Shopify store. Customers can browse products, manage cart, and checkout directly through WhatsApp conversations."
+keywords = ["whatsapp", "shopping", "chat", "customer-service", "automation"]
+category = "customer-service"
