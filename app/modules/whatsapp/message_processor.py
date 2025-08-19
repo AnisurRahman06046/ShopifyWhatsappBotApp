@@ -100,12 +100,38 @@ class MessageProcessor:
             await self.send_help_message(from_number)
         
         elif button_id.startswith("add_to_cart_"):
-            product_id = button_id.replace("add_to_cart_", "")
-            await self.add_to_cart(from_number, product_id, session)
+            parts = button_id.replace("add_to_cart_", "").split("_")
+            product_id = parts[0]
+            quantity = int(parts[1]) if len(parts) > 1 else 1
+            await self.add_to_cart(from_number, product_id, session, quantity)
         
         elif button_id.startswith("view_product_"):
             product_id = button_id.replace("view_product_", "")
             await self.show_product_details(from_number, product_id)
+        
+        elif button_id.startswith("qty_increase_"):
+            parts = button_id.replace("qty_increase_", "").split("_")
+            product_id = parts[0]
+            current_qty = int(parts[1]) if len(parts) > 1 else 1
+            new_qty = min(current_qty + 1, 99)  # Max quantity limit
+            await self.show_product_details(from_number, product_id, new_qty)
+        
+        elif button_id.startswith("qty_decrease_"):
+            parts = button_id.replace("qty_decrease_", "").split("_")
+            product_id = parts[0]
+            current_qty = int(parts[1]) if len(parts) > 1 else 1
+            new_qty = max(current_qty - 1, 1)  # Min quantity is 1
+            await self.show_product_details(from_number, product_id, new_qty)
+        
+        elif button_id.startswith("cart_qty_increase_"):
+            parts = button_id.replace("cart_qty_increase_", "").split("_")
+            product_id = parts[0]
+            await self.update_cart_quantity(from_number, product_id, 1, session)
+        
+        elif button_id.startswith("cart_qty_decrease_"):
+            parts = button_id.replace("cart_qty_decrease_", "").split("_")
+            product_id = parts[0]
+            await self.update_cart_quantity(from_number, product_id, -1, session)
         
         elif button_id == "checkout":
             await self.start_checkout(from_number, session)
@@ -126,6 +152,20 @@ class MessageProcessor:
         elif item_id.startswith("category_"):
             category = item_id.replace("category_", "")
             await self.show_products_by_category(from_number, category)
+        
+        elif item_id.startswith("cart_item_"):
+            product_id = item_id.replace("cart_item_", "")
+            # Get the cart item and show details
+            cart = await self.repo.get_cart(from_number)
+            cart_item = next((item for item in cart if item["product_id"] == product_id), None)
+            
+            if cart_item:
+                await self.show_cart_item_details(from_number, cart_item, session)
+            else:
+                await self.whatsapp.send_message(
+                    to=from_number,
+                    message="Item not found in cart."
+                )
 
     async def show_products(self, from_number: str):
         """Display product catalog"""
@@ -159,8 +199,8 @@ class MessageProcessor:
             sections=sections
         )
 
-    async def show_product_details(self, from_number: str, product_id: str):
-        """Show detailed product information"""
+    async def show_product_details(self, from_number: str, product_id: str, quantity: int = 1):
+        """Show detailed product information with quantity controls"""
         
         product = await self.shopify.get_product(product_id)
         
@@ -171,10 +211,10 @@ class MessageProcessor:
             )
             return
         
-        await self.whatsapp.send_product_message(from_number, product)
+        await self.whatsapp.send_product_message(from_number, product, quantity)
 
-    async def add_to_cart(self, from_number: str, product_id: str, session):
-        """Add product to cart"""
+    async def add_to_cart(self, from_number: str, product_id: str, session, quantity: int = 1):
+        """Add product to cart with specified quantity"""
         
         # Get current cart
         cart = await self.repo.get_cart(from_number)
@@ -195,14 +235,14 @@ class MessageProcessor:
             "variant_id": product["variant_id"],
             "title": product["title"],
             "price": product["price"],
-            "quantity": 1
+            "quantity": quantity
         }
         
         # Check if product already in cart
         existing_item = next((item for item in cart if item["product_id"] == product_id), None)
         
         if existing_item:
-            existing_item["quantity"] += 1
+            existing_item["quantity"] += quantity
         else:
             cart.append(cart_item)
         
@@ -210,6 +250,11 @@ class MessageProcessor:
         await self.repo.update_cart(from_number, cart)
         
         # Send confirmation
+        cart = await self.repo.get_cart(from_number)  # Get updated cart
+        updated_item = next((item for item in cart if item["product_id"] == product_id), None)
+        total_quantity = updated_item["quantity"] if updated_item else quantity
+        quantity_text = f"{quantity}" if quantity == 1 else f"{quantity} items"
+        
         buttons = [
             {"id": "view_cart", "title": "🛒 View Cart"},
             {"id": "browse_products", "title": "🛍️ Continue Shopping"},
@@ -218,12 +263,46 @@ class MessageProcessor:
         
         await self.whatsapp.send_button_message(
             to=from_number,
-            text=f"✅ Added '{product['title']}' to your cart!",
+            text=f"✅ Added {quantity_text} of '{product['title']}' to your cart!\n\n📦 Total in cart: {total_quantity}",
             buttons=buttons
         )
 
+    async def update_cart_quantity(self, from_number: str, product_id: str, quantity_change: int, session):
+        """Update quantity of item in cart"""
+        
+        cart = await self.repo.get_cart(from_number)
+        
+        # Find the item in cart
+        item_to_update = next((item for item in cart if item["product_id"] == product_id), None)
+        
+        if not item_to_update:
+            await self.whatsapp.send_message(
+                to=from_number,
+                message="Item not found in cart."
+            )
+            return
+        
+        # Update quantity
+        new_quantity = item_to_update["quantity"] + quantity_change
+        
+        if new_quantity <= 0:
+            # Remove item from cart
+            cart = [item for item in cart if item["product_id"] != product_id]
+            await self.repo.update_cart(from_number, cart)
+            await self.whatsapp.send_message(
+                to=from_number,
+                message=f"🗑️ Removed '{item_to_update['title']}' from your cart."
+            )
+        else:
+            # Update quantity
+            item_to_update["quantity"] = min(new_quantity, 99)  # Max limit
+            await self.repo.update_cart(from_number, cart)
+        
+        # Show updated cart
+        await self.show_cart(from_number, session)
+
     async def show_cart(self, from_number: str, session):
-        """Display cart contents"""
+        """Display cart contents with quantity controls"""
         
         cart = await self.repo.get_cart(from_number)
         
@@ -235,17 +314,40 @@ class MessageProcessor:
             await self.show_products(from_number)
             return
         
-        # Calculate total
+        # If cart has only one item, show detailed view with controls
+        if len(cart) == 1:
+            await self.show_cart_item_details(from_number, cart[0], session)
+            return
+        
+        # For multiple items, show cart summary with item selection
         total = sum(float(item["price"]) * item["quantity"] for item in cart)
         
-        # Build cart message
-        cart_text = "🛒 *Your Cart:*\n\n"
+        # Create sections for list message to select items
+        sections = [{
+            "title": "Cart Items",
+            "rows": []
+        }]
+        
         for item in cart:
-            cart_text += f"• {item['title']}\n"
-            cart_text += f"  Qty: {item['quantity']} × ${item['price']}\n\n"
+            item_total = float(item["price"]) * item["quantity"]
+            sections[0]["rows"].append({
+                "id": f"cart_item_{item['product_id']}",
+                "title": f"{item['title']} (×{item['quantity']})",
+                "description": f"${item_total:.2f}"
+            })
         
-        cart_text += f"*Total: ${total:.2f}*"
+        cart_text = f"🛒 *Your Cart ({len(cart)} items):*\n\n"
+        cart_text += f"💰 *Total: ${total:.2f}*\n\n"
+        cart_text += "Select an item to adjust quantity:"
         
+        await self.whatsapp.send_list_message(
+            to=from_number,
+            text=cart_text,
+            button_text="Manage Items",
+            sections=sections
+        )
+        
+        # Send action buttons separately
         buttons = [
             {"id": "checkout", "title": "💳 Checkout"},
             {"id": "browse_products", "title": "🛍️ Add More"},
@@ -254,7 +356,29 @@ class MessageProcessor:
         
         await self.whatsapp.send_button_message(
             to=from_number,
-            text=cart_text,
+            text="Choose an action:",
+            buttons=buttons
+        )
+
+    async def show_cart_item_details(self, from_number: str, cart_item: dict, session):
+        """Show detailed view of a cart item with quantity controls"""
+        
+        item_total = float(cart_item["price"]) * cart_item["quantity"]
+        
+        text = f"🛍️ *{cart_item['title']}*\n\n"
+        text += f"💰 Price: ${cart_item['price']} each\n"
+        text += f"📦 Quantity: {cart_item['quantity']}\n"
+        text += f"💵 Subtotal: ${item_total:.2f}"
+        
+        buttons = [
+            {"id": f"cart_qty_decrease_{cart_item['product_id']}", "title": "➖ Remove 1"},
+            {"id": f"cart_qty_increase_{cart_item['product_id']}", "title": "➕ Add 1"},
+            {"id": "view_cart", "title": "🛒 Back to Cart"}
+        ]
+        
+        await self.whatsapp.send_button_message(
+            to=from_number,
+            text=text,
             buttons=buttons
         )
 

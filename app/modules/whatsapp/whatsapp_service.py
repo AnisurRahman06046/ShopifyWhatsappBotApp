@@ -90,16 +90,20 @@ class WhatsAppService:
             response = await client.post(url, headers=headers, json=data)
             return response.json()
 
-    async def send_product_message(self, to: str, product: Dict[str, Any]):
-        """Send a product message with image and details"""
+    async def send_product_message(self, to: str, product: Dict[str, Any], quantity: int = 1):
+        """Send a product message with quantity controls"""
         text = f"🛍️ *{product['title']}*\n\n"
         text += f"💰 Price: ${product['price']}\n"
         if product.get('description'):
-            text += f"📝 {product['description'][:200]}..."
+            text += f"📝 {product['description'][:200]}...\n"
+        
+        text += f"\n📦 Quantity: {quantity}\n"
+        text += f"💵 Total: ${float(product['price']) * quantity:.2f}"
         
         buttons = [
-            {"id": f"add_to_cart_{product['id']}", "title": "🛒 Add to Cart"},
-            {"id": "browse_more", "title": "👀 Browse More"}
+            {"id": f"qty_decrease_{product['id']}_{quantity}", "title": "➖ Less"},
+            {"id": f"qty_increase_{product['id']}_{quantity}", "title": "➕ More"},
+            {"id": f"add_to_cart_{product['id']}_{quantity}", "title": f"🛒 Add {quantity} to Cart"}
         ]
         
         await self.send_button_message(to, text, buttons)
