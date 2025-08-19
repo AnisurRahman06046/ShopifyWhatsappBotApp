@@ -270,29 +270,46 @@ class MessageProcessor:
             )
             return
         
-        # Create Shopify checkout
-        line_items = [
-            {
-                "variant_id": item["variant_id"],
-                "quantity": item["quantity"]
-            }
-            for item in cart
-        ]
+        # Validate cart items have variant_id
+        valid_items = []
+        for item in cart:
+            if item.get("variant_id"):
+                valid_items.append({
+                    "variant_id": item["variant_id"],
+                    "quantity": item["quantity"]
+                })
+            else:
+                print(f"[WARNING] Cart item missing variant_id: {item}")
         
-        checkout_url = await self.shopify.create_checkout(line_items)
-        
-        if checkout_url:
+        if not valid_items:
             await self.whatsapp.send_message(
                 to=from_number,
-                message=f"🎉 Your checkout is ready!\n\nClick this link to complete your purchase:\n{checkout_url}\n\nThank you for shopping with us!"
+                message="Sorry, there was an issue with your cart items. Please try adding them again."
             )
+            return
+        
+        try:
+            # Create Shopify checkout
+            checkout_url = await self.shopify.create_checkout(valid_items)
             
-            # Clear cart after checkout
-            await self.repo.update_cart(from_number, [])
-        else:
+            if checkout_url:
+                await self.whatsapp.send_message(
+                    to=from_number,
+                    message=f"🎉 Your checkout is ready!\n\nClick this link to complete your purchase:\n{checkout_url}\n\nThank you for shopping with us!"
+                )
+                
+                # Clear cart after checkout
+                await self.repo.update_cart(from_number, [])
+            else:
+                await self.whatsapp.send_message(
+                    to=from_number,
+                    message="Sorry, there was an error creating your checkout. Please try again or contact support."
+                )
+        except Exception as e:
+            print(f"[ERROR] Checkout creation failed: {str(e)}")
             await self.whatsapp.send_message(
                 to=from_number,
-                message="Sorry, there was an error creating your checkout. Please try again."
+                message="Sorry, there was an error processing your checkout. Our team has been notified. Please try again later."
             )
 
     async def clear_cart(self, from_number: str, session):

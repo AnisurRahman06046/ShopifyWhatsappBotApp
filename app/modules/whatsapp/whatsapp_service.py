@@ -109,7 +109,7 @@ class ShopifyService:
     def __init__(self, store_url: str, access_token: str):
         self.store_url = store_url
         self.access_token = access_token
-        self.base_url = f"https://{store_url}/admin/api/2023-10"
+        self.base_url = f"https://{store_url}/admin/api/2024-01"
 
     async def get_products(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Fetch products from Shopify store"""
@@ -197,22 +197,118 @@ class ShopifyService:
             return {}
 
     async def create_checkout(self, line_items: List[Dict]) -> str:
-        """Create a checkout session for cart items"""
-        url = f"{self.base_url}/checkouts.json"
+        """Create checkout using multiple methods"""
+        
+        # Method 1: Try creating a permalink cart URL
+        cart_url = await self.create_cart_permalink(line_items)
+        if cart_url:
+            return cart_url
+        
+        # Method 2: Fallback to draft order
+        return await self.create_draft_order_checkout(line_items)
+    
+    async def create_cart_permalink(self, line_items: List[Dict]) -> str:
+        """Create a cart permalink URL for checkout"""
+        try:
+            # Build cart URL with variant IDs and quantities
+            cart_params = []
+            for item in line_items:
+                cart_params.append(f"{item['variant_id']}:{item['quantity']}")
+            
+            # Create cart URL
+            cart_string = ",".join(cart_params)
+            checkout_url = f"https://{self.store_url}/cart/{cart_string}"
+            
+            print(f"[DEBUG] Created cart permalink: {checkout_url}")
+            return checkout_url
+        except Exception as e:
+            print(f"[ERROR] Failed to create cart permalink: {str(e)}")
+            return ""
+    
+    async def create_draft_order_checkout(self, line_items: List[Dict]) -> str:
+        """Create a draft order and get checkout URL"""
+        url = f"{self.base_url}/draft_orders.json"
         headers = {
             "X-Shopify-Access-Token": self.access_token,
             "Content-Type": "application/json"
         }
         
+        # Transform line items to draft order format
+        draft_line_items = []
+        for item in line_items:
+            draft_line_items.append({
+                "variant_id": item["variant_id"],
+                "quantity": item["quantity"]
+            })
+        
         data = {
-            "checkout": {
-                "line_items": line_items
+            "draft_order": {
+                "line_items": draft_line_items,
+                "note": "Order from WhatsApp Bot",
+                "use_customer_default_address": True
             }
         }
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=headers, json=data)
-            if response.status_code == 201:
-                checkout = response.json()["checkout"]
-                return checkout["web_url"]
-            return ""
+        print(f"[DEBUG] Creating draft order with data: {json.dumps(data)}")
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, headers=headers, json=data)
+                print(f"[DEBUG] Draft order response status: {response.status_code}")
+                
+                if response.status_code == 201:
+                    draft_order = response.json()["draft_order"]
+                    
+                    # Get the invoice URL
+                    invoice_url = draft_order.get("invoice_url")
+                    
+                    if not invoice_url and draft_order.get("invoice_token"):
+                        # Construct the invoice URL manually
+                        invoice_url = f"https://{self.store_url}/draft_orders/{draft_order['invoice_token']}"
+                    
+                    if invoice_url:
+                        print(f"[DEBUG] Generated draft order URL: {invoice_url}")
+                        return invoice_url
+                    else:
+                        # Fallback: Create a cart URL with the draft order items
+                        cart_params = []
+                        for item in draft_order.get("line_items", []):
+                            if item.get("variant_id"):
+                                cart_params.append(f"{item['variant_id']}:{item['quantity']}")
+                        
+                        if cart_params:
+                            cart_string = ",".join(cart_params)
+                            checkout_url = f"https://{self.store_url}/cart/{cart_string}"
+                            print(f"[DEBUG] Fallback to cart URL: {checkout_url}")
+                            return checkout_url
+                else:
+                    print(f"[ERROR] Failed to create draft order: {response.text}")
+                    
+                    # Fallback to cart URL even on draft order failure
+                    cart_params = []
+                    for item in line_items:
+                        cart_params.append(f"{item['variant_id']}:{item['quantity']}")
+                    
+                    if cart_params:
+                        cart_string = ",".join(cart_params)
+                        checkout_url = f"https://{self.store_url}/cart/{cart_string}"
+                        print(f"[DEBUG] Fallback to cart URL after error: {checkout_url}")
+                        return checkout_url
+        except Exception as e:
+            print(f"[ERROR] Exception in create_draft_order_checkout: {str(e)}")
+            
+            # Last resort: Return a cart URL
+            try:
+                cart_params = []
+                for item in line_items:
+                    cart_params.append(f"{item['variant_id']}:{item['quantity']}")
+                
+                if cart_params:
+                    cart_string = ",".join(cart_params)
+                    checkout_url = f"https://{self.store_url}/cart/{cart_string}"
+                    print(f"[DEBUG] Last resort cart URL: {checkout_url}")
+                    return checkout_url
+            except:
+                pass
+        
+        return ""
