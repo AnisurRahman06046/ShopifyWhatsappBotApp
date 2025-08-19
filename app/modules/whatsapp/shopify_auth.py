@@ -570,3 +570,878 @@ async def setup_page(shop: str = Query(...), db: AsyncSession = Depends(get_asyn
     </body>
     </html>
     """)
+
+
+# GDPR and App Lifecycle Endpoints (Required by Shopify)
+
+@router.post("/webhooks/app/uninstalled")
+async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async_db)):
+    """Handle app uninstallation webhook from Shopify"""
+    
+    try:
+        # Get request body
+        body = await request.body()
+        
+        # Verify webhook signature
+        signature = request.headers.get("X-Shopify-Hmac-Sha256")
+        if not verify_webhook_signature(body, signature):
+            raise HTTPException(status_code=401, detail="Unauthorized webhook")
+        
+        # Parse webhook data
+        webhook_data = json.loads(body.decode())
+        shop_domain = webhook_data.get("domain")
+        
+        if not shop_domain:
+            raise HTTPException(status_code=400, detail="Missing shop domain")
+        
+        # Clean up store data
+        repo = ShopifyStoreRepository(db)
+        store = await repo.get_store_by_url(shop_domain)
+        
+        if store:
+            # Mark store as uninstalled instead of deleting (for compliance)
+            await repo.mark_store_uninstalled(shop_domain)
+            
+            # Clean up sensitive data
+            await repo.clear_store_credentials(shop_domain)
+            
+            # Log uninstallation
+            print(f"[INFO] App uninstalled for store: {shop_domain}")
+        
+        return {"status": "success", "message": "App uninstalled successfully"}
+        
+    except Exception as e:
+        print(f"[ERROR] App uninstall webhook failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/gdpr/customers/data_request")
+async def customer_data_request(request: Request, db: AsyncSession = Depends(get_async_db)):
+    """Handle GDPR customer data request"""
+    
+    try:
+        # Get request body
+        body = await request.body()
+        
+        # Verify webhook signature
+        signature = request.headers.get("X-Shopify-Hmac-Sha256")
+        if not verify_webhook_signature(body, signature):
+            raise HTTPException(status_code=401, detail="Unauthorized webhook")
+        
+        # Parse request data
+        request_data = json.loads(body.decode())
+        shop_domain = request_data.get("shop_domain")
+        customer_id = request_data.get("customer", {}).get("id")
+        customer_email = request_data.get("customer", {}).get("email")
+        customer_phone = request_data.get("customer", {}).get("phone")
+        
+        print(f"[INFO] GDPR data request for customer {customer_id} from store {shop_domain}")
+        
+        # Collect customer data from our systems
+        repo = ShopifyStoreRepository(db)
+        customer_data = await repo.get_customer_data(shop_domain, customer_id, customer_phone)
+        
+        # Return customer data (in production, you might email this or provide download link)
+        response_data = {
+            "customer_id": customer_id,
+            "customer_email": customer_email,
+            "data_collected": {
+                "whatsapp_sessions": customer_data.get("sessions", []),
+                "cart_data": customer_data.get("cart_data", {}),
+                "conversation_history": "Not stored - conversations are processed in real-time",
+                "personal_data": {
+                    "phone_number": customer_phone,
+                    "session_preferences": customer_data.get("preferences", {})
+                }
+            },
+            "data_retention": "Data is retained while app is installed and for 90 days after uninstallation",
+            "contact": "support@ecommercexpart.com for data requests"
+        }
+        
+        return {"status": "success", "data": response_data}
+        
+    except Exception as e:
+        print(f"[ERROR] GDPR data request failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/gdpr/customers/redact")
+async def customer_data_redact(request: Request, db: AsyncSession = Depends(get_async_db)):
+    """Handle GDPR customer data deletion request"""
+    
+    try:
+        # Get request body
+        body = await request.body()
+        
+        # Verify webhook signature
+        signature = request.headers.get("X-Shopify-Hmac-Sha256")
+        if not verify_webhook_signature(body, signature):
+            raise HTTPException(status_code=401, detail="Unauthorized webhook")
+        
+        # Parse request data
+        request_data = json.loads(body.decode())
+        shop_domain = request_data.get("shop_domain")
+        customer_id = request_data.get("customer", {}).get("id")
+        customer_email = request_data.get("customer", {}).get("email")
+        customer_phone = request_data.get("customer", {}).get("phone")
+        
+        print(f"[INFO] GDPR data deletion request for customer {customer_id} from store {shop_domain}")
+        
+        # Delete customer data from our systems
+        repo = ShopifyStoreRepository(db)
+        deleted_records = await repo.delete_customer_data(shop_domain, customer_id, customer_phone)
+        
+        return {
+            "status": "success", 
+            "message": "Customer data deleted successfully",
+            "records_deleted": deleted_records,
+            "customer_id": customer_id
+        }
+        
+    except Exception as e:
+        print(f"[ERROR] GDPR data deletion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/gdpr/shop/redact")
+async def shop_data_redact(request: Request, db: AsyncSession = Depends(get_async_db)):
+    """Handle GDPR shop data deletion request (when shop closes account)"""
+    
+    try:
+        # Get request body
+        body = await request.body()
+        
+        # Verify webhook signature  
+        signature = request.headers.get("X-Shopify-Hmac-Sha256")
+        if not verify_webhook_signature(body, signature):
+            raise HTTPException(status_code=401, detail="Unauthorized webhook")
+        
+        # Parse request data
+        request_data = json.loads(body.decode())
+        shop_domain = request_data.get("shop_domain")
+        shop_id = request_data.get("shop_id")
+        
+        print(f"[INFO] GDPR shop deletion request for shop {shop_domain}")
+        
+        # Delete all shop data from our systems
+        repo = ShopifyStoreRepository(db)
+        deleted_records = await repo.delete_shop_data(shop_domain)
+        
+        return {
+            "status": "success",
+            "message": "Shop data deleted successfully", 
+            "shop_domain": shop_domain,
+            "records_deleted": deleted_records
+        }
+        
+    except Exception as e:
+        print(f"[ERROR] GDPR shop deletion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+def verify_webhook_signature(body: bytes, signature: str) -> bool:
+    """Verify Shopify webhook signature"""
+    
+    if not signature:
+        return False
+    
+    try:
+        # Calculate expected signature
+        expected_signature = base64.b64encode(
+            hmac.new(
+                settings.SHOPIFY_WEBHOOK_SECRET.encode(),
+                body,
+                digestmod=hashlib.sha256
+            ).digest()
+        ).decode()
+        
+        return hmac.compare_digest(signature, expected_signature)
+        
+    except Exception as e:
+        print(f"[ERROR] Webhook signature verification failed: {str(e)}")
+        return False
+
+
+# Required Pages for App Store Submission
+
+@router.get("/privacy")
+async def privacy_policy():
+    """Privacy policy page required by Shopify"""
+    
+    privacy_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Privacy Policy - WhatsApp Shopping Bot</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background: #f8f9fa;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 40px 20px;
+                background: white;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            h1 { 
+                color: #25D366; 
+                margin-bottom: 20px; 
+                font-size: 32px;
+                text-align: center;
+            }
+            h2 { 
+                color: #2c3e50; 
+                margin: 30px 0 15px 0; 
+                font-size: 24px;
+                border-bottom: 2px solid #25D366;
+                padding-bottom: 5px;
+            }
+            h3 { 
+                color: #34495e; 
+                margin: 20px 0 10px 0; 
+                font-size: 18px;
+            }
+            p, li { margin-bottom: 10px; }
+            ul { padding-left: 20px; }
+            .last-updated {
+                background: #e8f5e9;
+                padding: 10px;
+                border-radius: 5px;
+                text-align: center;
+                margin-bottom: 30px;
+                color: #2e7d32;
+                font-weight: 600;
+            }
+            .contact-info {
+                background: #f0f8f0;
+                padding: 20px;
+                border-radius: 10px;
+                border-left: 5px solid #25D366;
+                margin-top: 30px;
+            }
+            .footer {
+                text-align: center;
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #ddd;
+                color: #666;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🔒 Privacy Policy</h1>
+            <div class="last-updated">
+                <strong>Last Updated: August 19, 2025</strong>
+            </div>
+
+            <h2>1. Introduction</h2>
+            <p>WhatsApp Shopping Bot ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard information when you use our Shopify application.</p>
+
+            <h2>2. Information We Collect</h2>
+            
+            <h3>Store Information</h3>
+            <ul>
+                <li><strong>Shopify Store Data</strong>: Store name, URL, and basic store configuration</li>
+                <li><strong>Access Tokens</strong>: Shopify API access tokens for authorized operations</li>
+                <li><strong>Product Information</strong>: Product catalogs, pricing, and inventory data</li>
+            </ul>
+
+            <h3>WhatsApp Configuration</h3>
+            <ul>
+                <li><strong>Business Account Details</strong>: WhatsApp Business Account ID and Phone Number ID</li>
+                <li><strong>Access Tokens</strong>: WhatsApp Business API tokens (stored securely)</li>
+                <li><strong>Webhook Configuration</strong>: Verification tokens and webhook URLs</li>
+            </ul>
+
+            <h3>Customer Interaction Data</h3>
+            <ul>
+                <li><strong>Phone Numbers</strong>: WhatsApp phone numbers for conversation continuity</li>
+                <li><strong>Shopping Cart Data</strong>: Products added to cart during WhatsApp sessions</li>
+                <li><strong>Session Information</strong>: Conversation state and preferences</li>
+            </ul>
+
+            <h2>3. How We Use Information</h2>
+            
+            <h3>Primary Purposes</h3>
+            <ul>
+                <li><strong>Enable WhatsApp Shopping</strong>: Process customer conversations and shopping requests</li>
+                <li><strong>Order Management</strong>: Create checkout sessions and draft orders</li>
+                <li><strong>Customer Support</strong>: Provide shopping assistance through WhatsApp</li>
+                <li><strong>Service Improvement</strong>: Analyze usage patterns to improve functionality</li>
+            </ul>
+
+            <h2>4. Information Sharing</h2>
+            
+            <h3>With Shopify</h3>
+            <p>We access your Shopify store data only as authorized by you. Product and order information is processed to enable shopping functionality. We comply with Shopify's data protection requirements.</p>
+
+            <h3>With Meta/WhatsApp</h3>
+            <p>We interact with WhatsApp Business API to send and receive messages. Customer phone numbers are used only for conversation continuity. We comply with WhatsApp's Business API terms and privacy requirements.</p>
+
+            <h2>5. Data Security</h2>
+            <ul>
+                <li><strong>Encryption</strong>: All data is encrypted in transit and at rest</li>
+                <li><strong>Access Controls</strong>: Strict access controls limit who can access data</li>
+                <li><strong>Regular Audits</strong>: Security practices are regularly reviewed and updated</li>
+                <li><strong>Secure Storage</strong>: All credentials and tokens are stored using industry-standard security</li>
+            </ul>
+
+            <h2>6. Your Rights</h2>
+            <p>You have the right to:</p>
+            <ul>
+                <li><strong>View Data</strong>: Request to see what data we have about your store</li>
+                <li><strong>Data Export</strong>: Request a copy of your data in a portable format</li>
+                <li><strong>Data Deletion</strong>: Request deletion of your data when uninstalling the app</li>
+                <li><strong>Corrections</strong>: Request corrections to inaccurate information</li>
+            </ul>
+
+            <h2>7. Compliance</h2>
+            <p>We comply with GDPR, CCPA, PIPEDA, and other applicable privacy laws. We meet all Shopify partner privacy requirements.</p>
+
+            <h2>8. Data Retention</h2>
+            <ul>
+                <li><strong>Active Data</strong>: Retained while the app is installed and in use</li>
+                <li><strong>Inactive Data</strong>: Automatically deleted after account deactivation</li>
+                <li><strong>Backup Data</strong>: Securely stored backups are retained for disaster recovery</li>
+            </ul>
+
+            <h2>9. Children's Privacy</h2>
+            <p>Our service is not intended for users under 13 years of age. We do not knowingly collect personal information from children under 13.</p>
+
+            <h2>10. Changes to Privacy Policy</h2>
+            <p>We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the updated policy on our website and sending notification through the app.</p>
+
+            <div class="contact-info">
+                <h3>📞 Contact Information</h3>
+                <p><strong>Email:</strong> support@ecommercexpart.com</p>
+                <p><strong>Website:</strong> https://sc.ecommercexpart.com</p>
+                <p><strong>For Data Requests:</strong> privacy@ecommercexpart.com</p>
+            </div>
+
+            <div class="footer">
+                <p>This Privacy Policy is effective as of the date listed above and supersedes all previous versions.</p>
+                <p>By using our WhatsApp Shopping Bot, you acknowledge that you have read and understood this Privacy Policy.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=privacy_content)
+
+
+@router.get("/terms")
+async def terms_of_service():
+    """Terms of service page required by Shopify"""
+    
+    terms_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Terms of Service - WhatsApp Shopping Bot</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background: #f8f9fa;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 40px 20px;
+                background: white;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            h1 { 
+                color: #25D366; 
+                margin-bottom: 20px; 
+                font-size: 32px;
+                text-align: center;
+            }
+            h2 { 
+                color: #2c3e50; 
+                margin: 30px 0 15px 0; 
+                font-size: 24px;
+                border-bottom: 2px solid #25D366;
+                padding-bottom: 5px;
+            }
+            h3 { 
+                color: #34495e; 
+                margin: 20px 0 10px 0; 
+                font-size: 18px;
+            }
+            p, li { margin-bottom: 10px; }
+            ul { padding-left: 20px; }
+            .last-updated {
+                background: #e8f5e9;
+                padding: 10px;
+                border-radius: 5px;
+                text-align: center;
+                margin-bottom: 30px;
+                color: #2e7d32;
+                font-weight: 600;
+            }
+            .contact-info {
+                background: #f0f8f0;
+                padding: 20px;
+                border-radius: 10px;
+                border-left: 5px solid #25D366;
+                margin-top: 30px;
+            }
+            .footer {
+                text-align: center;
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #ddd;
+                color: #666;
+            }
+            .highlight {
+                background: #fff3cd;
+                padding: 15px;
+                border-left: 4px solid #ffc107;
+                margin: 15px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>📋 Terms of Service</h1>
+            <div class="last-updated">
+                <strong>Last Updated: August 19, 2025</strong>
+            </div>
+
+            <h2>1. Agreement to Terms</h2>
+            <p>By installing and using WhatsApp Shopping Bot ("the App"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use the App.</p>
+
+            <h2>2. Description of Service</h2>
+            <p>WhatsApp Shopping Bot is a Shopify application that enables store owners to:</p>
+            <ul>
+                <li>Connect their Shopify store with WhatsApp Business API</li>
+                <li>Allow customers to browse products through WhatsApp</li>
+                <li>Enable cart management and checkout via WhatsApp conversations</li>
+                <li>Provide automated customer support through messaging</li>
+            </ul>
+
+            <h2>3. Eligibility</h2>
+            <p>To use this App, you must:</p>
+            <ul>
+                <li>Be a Shopify store owner with a valid Shopify account</li>
+                <li>Have a Meta Business account with WhatsApp Business API access</li>
+                <li>Comply with WhatsApp's Terms of Service and Commerce Policy</li>
+                <li>Be legally able to enter into this agreement</li>
+            </ul>
+
+            <h2>4. Account Setup and Security</h2>
+            
+            <h3>Your Responsibilities</h3>
+            <ul>
+                <li>Provide accurate WhatsApp Business API credentials</li>
+                <li>Maintain the security of your account credentials</li>
+                <li>Notify us immediately of any security breaches</li>
+                <li>Ensure your WhatsApp Business account complies with Meta's policies</li>
+            </ul>
+
+            <h3>Our Responsibilities</h3>
+            <ul>
+                <li>Securely store your API credentials</li>
+                <li>Provide reliable service uptime</li>
+                <li>Maintain data security standards</li>
+                <li>Offer technical support for app-related issues</li>
+            </ul>
+
+            <h2>5. Acceptable Use</h2>
+            
+            <div class="highlight">
+                <h3>✅ You May</h3>
+                <ul>
+                    <li>Use the App for legitimate business purposes</li>
+                    <li>Customize welcome messages and bot responses</li>
+                    <li>Integrate the App with your existing Shopify workflow</li>
+                    <li>Contact customer support for technical assistance</li>
+                </ul>
+            </div>
+
+            <div class="highlight">
+                <h3>❌ You May Not</h3>
+                <ul>
+                    <li>Use the App for spam or unsolicited messaging</li>
+                    <li>Violate WhatsApp's messaging policies</li>
+                    <li>Attempt to reverse engineer or modify the App</li>
+                    <li>Use the App for illegal activities</li>
+                    <li>Share your account credentials with unauthorized parties</li>
+                </ul>
+            </div>
+
+            <h2>6. Data Usage and Privacy</h2>
+            <ul>
+                <li>We comply with GDPR, CCPA, and other privacy regulations</li>
+                <li>All data is encrypted in transit and at rest</li>
+                <li>We never sell or share customer data with third parties</li>
+                <li>See our Privacy Policy for complete details</li>
+            </ul>
+
+            <h2>7. Service Availability</h2>
+            <ul>
+                <li>We strive for 99.9% uptime</li>
+                <li>Scheduled maintenance will be announced in advance</li>
+                <li>Service availability depends on Shopify and WhatsApp APIs</li>
+                <li>We are not responsible for third-party service interruptions</li>
+            </ul>
+
+            <h2>8. Limitation of Liability</h2>
+            <ul>
+                <li>The App is provided "as is" without warranties</li>
+                <li>We are not liable for indirect or consequential damages</li>
+                <li>Our liability is limited to the amount paid for the service</li>
+                <li>We are not responsible for WhatsApp or Shopify service issues</li>
+            </ul>
+
+            <h2>9. Termination</h2>
+            
+            <h3>By You</h3>
+            <ul>
+                <li>Cancel subscription anytime through Shopify admin</li>
+                <li>Data deletion available upon request</li>
+                <li>Export your data before cancellation</li>
+            </ul>
+
+            <h3>By Us</h3>
+            <ul>
+                <li>We may terminate for violation of Terms</li>
+                <li>30-day notice for convenience termination</li>
+                <li>Immediate termination for serious violations</li>
+            </ul>
+
+            <h2>10. Support and Contact</h2>
+            <ul>
+                <li><strong>Technical Support</strong>: support@ecommercexpart.com</li>
+                <li><strong>Help Center</strong>: https://sc.ecommercexpart.com/support</li>
+                <li><strong>Response Time</strong>: Within 24 hours</li>
+            </ul>
+
+            <h2>11. Changes to Terms</h2>
+            <p>We may update these Terms from time to time. Material changes will be announced 30 days in advance. Non-material changes may be made with notice. Continued use constitutes acceptance of changes.</p>
+
+            <div class="contact-info">
+                <h3>📞 Contact Information</h3>
+                <p><strong>WhatsApp Shopping Bot</strong></p>
+                <p><strong>Website:</strong> https://sc.ecommercexpart.com</p>
+                <p><strong>Email:</strong> legal@ecommercexpart.com</p>
+                <p><strong>Support:</strong> support@ecommercexpart.com</p>
+            </div>
+
+            <div class="footer">
+                <p>By using WhatsApp Shopping Bot, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=terms_content)
+
+
+@router.get("/support") 
+async def support_page():
+    """Support page required by Shopify"""
+    
+    support_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Support - WhatsApp Shopping Bot</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background: #f8f9fa;
+            }
+            .container {
+                max-width: 1000px;
+                margin: 0 auto;
+                padding: 40px 20px;
+            }
+            .header {
+                background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+                color: white;
+                padding: 40px;
+                border-radius: 15px;
+                margin-bottom: 30px;
+                text-align: center;
+            }
+            h1 { 
+                font-size: 36px;
+                margin-bottom: 10px;
+            }
+            .subtitle {
+                font-size: 18px;
+                opacity: 0.9;
+            }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 20px;
+                margin-bottom: 30px;
+            }
+            .card {
+                background: white;
+                border-radius: 10px;
+                padding: 25px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .card h3 {
+                color: #25D366;
+                margin-bottom: 15px;
+                font-size: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .card p {
+                margin-bottom: 15px;
+                color: #666;
+            }
+            .contact-item {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                margin-bottom: 15px;
+                padding: 15px;
+                background: #f8f9fa;
+                border-radius: 8px;
+            }
+            .icon {
+                font-size: 24px;
+                width: 40px;
+                text-align: center;
+            }
+            .faq-item {
+                background: white;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                overflow: hidden;
+            }
+            .faq-question {
+                background: #25D366;
+                color: white;
+                padding: 20px;
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .faq-answer {
+                padding: 20px;
+                background: #f8f9fa;
+            }
+            .button {
+                display: inline-block;
+                background: #25D366;
+                color: white;
+                padding: 12px 24px;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: 600;
+                transition: background 0.3s;
+            }
+            .button:hover {
+                background: #128C7E;
+            }
+            .status-indicator {
+                display: inline-block;
+                padding: 5px 10px;
+                background: #d4edda;
+                color: #155724;
+                border-radius: 15px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🆘 Support Center</h1>
+                <p class="subtitle">Get help with WhatsApp Shopping Bot</p>
+                <div style="margin-top: 15px;">
+                    <span class="status-indicator">🟢 All Systems Operational</span>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <h3>📧 Contact Support</h3>
+                    <p>Need help? Our support team is here to assist you.</p>
+                    
+                    <div class="contact-item">
+                        <div class="icon">📧</div>
+                        <div>
+                            <strong>Email Support</strong><br>
+                            support@ecommercexpart.com<br>
+                            <small>Response within 24 hours</small>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="icon">💬</div>
+                        <div>
+                            <strong>Live Chat</strong><br>
+                            Available 9 AM - 6 PM EST<br>
+                            <small>Mon-Fri business hours</small>
+                        </div>
+                    </div>
+
+                    <div class="contact-item">
+                        <div class="icon">📞</div>
+                        <div>
+                            <strong>Business Inquiries</strong><br>
+                            business@ecommercexpart.com<br>
+                            <small>Partnership & enterprise sales</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>🚀 Quick Start Guide</h3>
+                    <p>Get up and running in just a few steps:</p>
+                    
+                    <ol style="padding-left: 20px;">
+                        <li><strong>Install the App</strong><br>
+                        <small>Add WhatsApp Shopping Bot to your Shopify store</small></li>
+                        
+                        <li><strong>Configure WhatsApp</strong><br>
+                        <small>Connect your WhatsApp Business account</small></li>
+                        
+                        <li><strong>Set Up Webhook</strong><br>
+                        <small>Add webhook URL to your Meta Business settings</small></li>
+                        
+                        <li><strong>Test & Launch</strong><br>
+                        <small>Send a test message and go live!</small></li>
+                    </ol>
+                    
+                    <div style="margin-top: 20px;">
+                        <a href="https://sc.ecommercexpart.com/docs" class="button">📖 View Full Documentation</a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>🛠️ Troubleshooting</h3>
+                    <p>Common issues and solutions:</p>
+                    
+                    <ul style="padding-left: 20px;">
+                        <li><strong>Messages not sending?</strong><br>
+                        <small>Check WhatsApp Business API credentials</small></li>
+                        
+                        <li><strong>Products not displaying?</strong><br>
+                        <small>Verify Shopify API permissions</small></li>
+                        
+                        <li><strong>Webhook not working?</strong><br>
+                        <small>Confirm webhook URL and verify token</small></li>
+                        
+                        <li><strong>Checkout not working?</strong><br>
+                        <small>Check product variant IDs and inventory</small></li>
+                    </ul>
+                    
+                    <div style="margin-top: 20px;">
+                        <a href="https://sc.ecommercexpart.com/troubleshooting" class="button">🔧 Troubleshooting Guide</a>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>📚 Resources</h3>
+                    <p>Documentation and helpful links:</p>
+                    
+                    <ul style="padding-left: 20px;">
+                        <li><a href="https://sc.ecommercexpart.com/docs/setup" style="color: #25D366;">📋 Setup Guide</a></li>
+                        <li><a href="https://sc.ecommercexpart.com/docs/api" style="color: #25D366;">🔌 API Reference</a></li>
+                        <li><a href="https://developers.facebook.com/docs/whatsapp" style="color: #25D366;">📱 WhatsApp API Docs</a></li>
+                        <li><a href="https://shopify.dev/docs/api" style="color: #25D366;">🛍️ Shopify API Docs</a></li>
+                    </ul>
+                    
+                    <div style="margin-top: 20px;">
+                        <a href="https://sc.ecommercexpart.com/changelog" class="button">📝 View Changelog</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>❓ Frequently Asked Questions</h3>
+                
+                <div class="faq-item">
+                    <div class="faq-question">
+                        How do I get WhatsApp Business API access?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>You need a Meta Business account with WhatsApp Business API access. Apply through Meta Business Manager or work with a WhatsApp Business Solution Provider.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        Is there a free plan available?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Yes! We offer a free plan with basic features and up to 100 messages per month. Perfect for testing and small stores.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        Can I customize the bot messages?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Absolutely! You can customize welcome messages, product descriptions, and all automated responses through the app dashboard.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        Does it work with all Shopify plans?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Yes, WhatsApp Shopping Bot works with all Shopify plans including Basic, Shopify, Advanced, and Shopify Plus.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">
+                        How secure is customer data?
+                        <span>+</span>
+                    </div>
+                    <div class="faq-answer">
+                        <p>We use industry-standard encryption and comply with GDPR, CCPA, and other privacy regulations. Customer data is never shared with third parties.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 40px;">
+                <h3>Still need help?</h3>
+                <p>Can't find what you're looking for? Our support team is here to help!</p>
+                <div style="margin-top: 20px;">
+                    <a href="mailto:support@ecommercexpart.com" class="button">📧 Contact Support</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=support_content)
