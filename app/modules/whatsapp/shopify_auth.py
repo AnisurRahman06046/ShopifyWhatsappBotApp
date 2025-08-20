@@ -724,8 +724,11 @@ async def force_clear_credentials(shop: str = Query(...), db: AsyncSession = Dep
             store.whatsapp_verify_token = None
             store.whatsapp_phone_number_id = None
             store.whatsapp_business_account_id = None
-            store.access_token = None
             store.welcome_message = None
+            
+            # Mark access token as invalid instead of NULL (due to NOT NULL constraint)
+            if store.access_token and not store.access_token.startswith("UNINSTALLED"):
+                store.access_token = "UNINSTALLED_" + store.access_token[:10]
             
             # Force commit
             await db.commit()

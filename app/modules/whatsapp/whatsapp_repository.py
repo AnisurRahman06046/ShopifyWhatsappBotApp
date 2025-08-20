@@ -123,17 +123,19 @@ class ShopifyStoreRepository:
             # Mark as uninstalled
             store.whatsapp_enabled = False
             
-            # Clear all sensitive credentials
+            # Clear all WhatsApp credentials (but keep access_token as it has NOT NULL constraint)
             store.whatsapp_token = None
             store.whatsapp_verify_token = None
             store.whatsapp_phone_number_id = None
             store.whatsapp_business_account_id = None
-            store.access_token = None
             store.welcome_message = None
+            
+            # Mark access token as invalid instead of setting to NULL
+            store.access_token = "UNINSTALLED_" + store.access_token[:10] if store.access_token else "UNINSTALLED"
             
             # Commit all changes at once
             await self.db.commit()
-            print(f"[INFO] Store uninstalled and credentials cleared for: {store_url}")
+            print(f"[INFO] Store uninstalled and WhatsApp credentials cleared for: {store_url}")
             return True
         return False
     
@@ -155,15 +157,18 @@ class ShopifyStoreRepository:
         )
         store = result.scalar_one_or_none()
         if store:
-            # Clear all sensitive credentials but keep basic store info for compliance
+            # Clear all WhatsApp credentials but keep basic store info for compliance
             store.whatsapp_token = None
             store.whatsapp_verify_token = None
             store.whatsapp_phone_number_id = None
             store.whatsapp_business_account_id = None
-            store.access_token = None  # Clear Shopify access token too
-            store.welcome_message = None  # Clear custom messages
+            store.welcome_message = None
+            
+            # Mark access token as invalid instead of setting to NULL (due to NOT NULL constraint)
+            store.access_token = "UNINSTALLED_" + store.access_token[:10] if store.access_token else "UNINSTALLED"
+            
             await self.db.commit()
-            print(f"[INFO] Cleared all credentials for store: {store_url}")
+            print(f"[INFO] Cleared WhatsApp credentials for store: {store_url}")
     
     async def get_customer_data(self, shop_domain: str, customer_id: str = None, customer_phone: str = None) -> dict:
         """Get customer data for GDPR compliance"""
