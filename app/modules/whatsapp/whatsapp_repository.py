@@ -131,11 +131,15 @@ class ShopifyStoreRepository:
         )
         store = result.scalar_one_or_none()
         if store:
-            # Clear WhatsApp credentials but keep basic store info for compliance
+            # Clear all sensitive credentials but keep basic store info for compliance
             store.whatsapp_token = None
             store.whatsapp_verify_token = None
+            store.whatsapp_phone_number_id = None
+            store.whatsapp_business_account_id = None
             store.access_token = None  # Clear Shopify access token too
+            store.welcome_message = None  # Clear custom messages
             await self.db.commit()
+            print(f"[INFO] Cleared all credentials for store: {store_url}")
     
     async def get_customer_data(self, shop_domain: str, customer_id: str = None, customer_phone: str = None) -> dict:
         """Get customer data for GDPR compliance"""
