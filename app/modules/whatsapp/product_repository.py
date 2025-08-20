@@ -52,24 +52,23 @@ class ProductRepository:
             product.tags = shopify_product.get("tags", product.tags)
             product.shopify_updated_at = datetime.fromisoformat(shopify_product["updated_at"].replace("Z", "+00:00")).replace(tzinfo=None)
         
-        # Handle variants
+        # First commit the product to ensure it has a proper ID
+        await self.db.flush()  # Generate product ID
+        await self.db.commit()
+        print(f"[DEBUG] Product {product.title} committed with ID: {product.id}")
+        
+        # Now handle variants with committed product
         if "variants" in shopify_product:
             print(f"[DEBUG] Starting variant sync for product {product.title}")
             print(f"[DEBUG] Shopify provided {len(shopify_product['variants'])} variants")
             await self._sync_variants(product, shopify_product["variants"])
-            print(f"[DEBUG] Completed variant sync for product {product.title}")
+            await self.db.commit()  # Commit variants separately
+            print(f"[DEBUG] Committed {len(shopify_product['variants'])} variants for {product.title}")
         
         # Handle images
         if "images" in shopify_product:
             await self._sync_images(product, shopify_product["images"])
-        
-        # Flush to generate IDs but don't commit yet
-        await self.db.flush()
-        print(f"[DEBUG] After flush - Product {product.title} has {len(product.variants)} variants in session")
-        
-        # Now commit the transaction
-        await self.db.commit()
-        print(f"[DEBUG] Successfully committed product {product.title} with variants")
+            await self.db.commit()  # Commit images separately
         return product
     
     async def _sync_variants(self, product: Product, shopify_variants: List[Dict[str, Any]]):
