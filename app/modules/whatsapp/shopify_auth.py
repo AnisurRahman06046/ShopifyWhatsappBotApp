@@ -11,6 +11,7 @@ import hashlib
 from urllib.parse import urlencode
 import base64
 import secrets
+import json
 
 router = APIRouter(prefix="/shopify", tags=["shopify"])
 
@@ -329,6 +330,9 @@ async def shopify_callback(
             shop_name=shop_data["name"]
         )
     
+    # Register webhooks for app lifecycle events
+    await register_webhooks(shop, access_token)
+    
     # Redirect to setup page
     return RedirectResponse(url=f"/shopify/setup?shop={shop}")
 
@@ -574,6 +578,43 @@ async def setup_page(shop: str = Query(...), db: AsyncSession = Depends(get_asyn
 
 # GDPR and App Lifecycle Endpoints (Required by Shopify)
 
+@router.post("/manual-uninstall")
+async def manual_uninstall(shop: str = Query(...), db: AsyncSession = Depends(get_async_db)):
+    """Manually uninstall app for a store (for testing/admin use)"""
+    
+    try:
+        print(f"[INFO] Manual uninstall initiated for store: {shop}")
+        
+        # Clean up store data
+        repo = ShopifyStoreRepository(db)
+        store = await repo.get_store_by_url(shop)
+        
+        if store:
+            # Mark store as uninstalled
+            await repo.mark_store_uninstalled(shop)
+            
+            # Clear sensitive credentials
+            await repo.clear_store_credentials(shop)
+            
+            print(f"[INFO] Manual uninstall completed for store: {shop}")
+            
+            return {
+                "status": "success",
+                "message": f"App uninstalled successfully for {shop}",
+                "details": {
+                    "store": shop,
+                    "whatsapp_enabled": False,
+                    "credentials_cleared": True
+                }
+            }
+        else:
+            raise HTTPException(status_code=404, detail=f"Store {shop} not found")
+            
+    except Exception as e:
+        print(f"[ERROR] Manual uninstall failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/webhooks/app/uninstalled")
 async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async_db)):
     """Handle app uninstallation webhook from Shopify"""
@@ -582,17 +623,26 @@ async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async
         # Get request body
         body = await request.body()
         
-        # Verify webhook signature
-        signature = request.headers.get("X-Shopify-Hmac-Sha256")
-        if not verify_webhook_signature(body, signature):
-            raise HTTPException(status_code=401, detail="Unauthorized webhook")
+        # Log webhook for debugging
+        print(f"[DEBUG] Webhook received - Headers: {dict(request.headers)}")
+        print(f"[DEBUG] Webhook body: {body.decode()[:500]}")
+        
+        # Verify webhook signature (if webhook secret is configured)
+        if settings.SHOPIFY_WEBHOOK_SECRET:
+            signature = request.headers.get("X-Shopify-Hmac-Sha256")
+            if not verify_webhook_signature(body, signature):
+                print(f"[ERROR] Webhook signature verification failed")
+                raise HTTPException(status_code=401, detail="Unauthorized webhook")
         
         # Parse webhook data
         webhook_data = json.loads(body.decode())
-        shop_domain = webhook_data.get("domain")
+        shop_domain = webhook_data.get("domain") or webhook_data.get("myshopify_domain")
         
         if not shop_domain:
+            print(f"[ERROR] Missing shop domain in webhook data: {webhook_data}")
             raise HTTPException(status_code=400, detail="Missing shop domain")
+        
+        print(f"[INFO] Processing uninstall for store: {shop_domain}")
         
         # Clean up store data
         repo = ShopifyStoreRepository(db)
@@ -606,10 +656,15 @@ async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async
             await repo.clear_store_credentials(shop_domain)
             
             # Log uninstallation
-            print(f"[INFO] App uninstalled for store: {shop_domain}")
+            print(f"[INFO] App uninstalled successfully for store: {shop_domain}")
+        else:
+            print(f"[WARNING] Store not found in database: {shop_domain}")
         
         return {"status": "success", "message": "App uninstalled successfully"}
         
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] Invalid JSON in webhook body: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid webhook data")
     except Exception as e:
         print(f"[ERROR] App uninstall webhook failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -739,10 +794,79 @@ async def shop_data_redact(request: Request, db: AsyncSession = Depends(get_asyn
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+async def register_webhooks(shop: str, access_token: str):
+    """Register webhooks with Shopify"""
+    
+    print(f"[INFO] Registering webhooks for store: {shop}")
+    
+    # List of webhooks to register
+    webhooks = [
+        {
+            "topic": "app/uninstalled",
+            "address": f"{settings.REDIRECT_URI}/shopify/webhooks/app/uninstalled",
+            "format": "json"
+        },
+        {
+            "topic": "customers/data_request",
+            "address": f"{settings.REDIRECT_URI}/shopify/gdpr/customers/data_request",
+            "format": "json"
+        },
+        {
+            "topic": "customers/redact",
+            "address": f"{settings.REDIRECT_URI}/shopify/gdpr/customers/redact",
+            "format": "json"
+        },
+        {
+            "topic": "shop/redact",
+            "address": f"{settings.REDIRECT_URI}/shopify/gdpr/shop/redact",
+            "format": "json"
+        }
+    ]
+    
+    headers = {
+        "X-Shopify-Access-Token": access_token,
+        "Content-Type": "application/json"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        for webhook in webhooks:
+            webhook_url = f"https://{shop}/admin/api/2024-01/webhooks.json"
+            
+            try:
+                # Check if webhook already exists
+                response = await client.get(webhook_url, headers=headers)
+                existing_webhooks = response.json().get("webhooks", [])
+                
+                # Check if this webhook topic already exists
+                webhook_exists = any(
+                    w["topic"] == webhook["topic"] 
+                    for w in existing_webhooks
+                )
+                
+                if not webhook_exists:
+                    # Create new webhook
+                    response = await client.post(
+                        webhook_url,
+                        headers=headers,
+                        json={"webhook": webhook}
+                    )
+                    
+                    if response.status_code == 201:
+                        print(f"[INFO] Webhook registered: {webhook['topic']}")
+                    else:
+                        print(f"[ERROR] Failed to register webhook {webhook['topic']}: {response.text}")
+                else:
+                    print(f"[INFO] Webhook already exists: {webhook['topic']}")
+                    
+            except Exception as e:
+                print(f"[ERROR] Failed to register webhook {webhook['topic']}: {str(e)}")
+
+
 def verify_webhook_signature(body: bytes, signature: str) -> bool:
     """Verify Shopify webhook signature"""
     
     if not signature:
+        print("[WARNING] No webhook signature provided")
         return False
     
     try:
@@ -755,7 +879,12 @@ def verify_webhook_signature(body: bytes, signature: str) -> bool:
             ).digest()
         ).decode()
         
-        return hmac.compare_digest(signature, expected_signature)
+        is_valid = hmac.compare_digest(signature, expected_signature)
+        
+        if not is_valid:
+            print(f"[DEBUG] Signature mismatch - Expected: {expected_signature[:20]}..., Got: {signature[:20]}...")
+        
+        return is_valid
         
     except Exception as e:
         print(f"[ERROR] Webhook signature verification failed: {str(e)}")
