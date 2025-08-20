@@ -231,12 +231,25 @@ class MessageProcessor:
             # Simple product listing without pagination
             nav_text = f"📦 Here are our available products:"
             
-            await self.whatsapp.send_list_message(
-                to=from_number,
-                text=nav_text,
-                button_text="View Products",
-                sections=sections
-            )
+            print(f"[DEBUG] Attempting to send list message with {len(sections)} sections")
+            print(f"[DEBUG] Section details: {[(s['title'], len(s['rows'])) for s in sections]}")
+            
+            try:
+                await self.whatsapp.send_list_message(
+                    to=from_number,
+                    text=nav_text,
+                    button_text="View Products",
+                    sections=sections
+                )
+                print(f"[DEBUG] WhatsApp list message sent successfully")
+            except Exception as e:
+                print(f"[ERROR] Failed to send WhatsApp list message: {str(e)}")
+                # Fallback: send simple text message
+                product_list = "\n".join([f"• {p.title} - ${p.variants[0].price:.2f}" for p in products[:10] if p.variants])
+                await self.whatsapp.send_message(
+                    to=from_number,
+                    message=f"📦 Our Products:\n\n{product_list}\n\nReply with product name to view details"
+                )
             
             print(f"[INFO] ✅ Served {len(products)} products from database (NO API CALL)")
             
