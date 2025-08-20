@@ -219,7 +219,7 @@ class MessageProcessor:
                     print(f"[DEBUG] Product {product.title}: NO VARIANTS FOUND")
                 
                 sections[0]["rows"].append({
-                    "id": f"product_{product.id}",
+                    "id": f"product_{product.shopify_product_id}",
                     "title": product.title[:24],  # WhatsApp limit
                     "description": price_text
                 })
@@ -339,7 +339,7 @@ class MessageProcessor:
         first_image = db_product.images[0] if db_product.images else None
         
         result = {
-            "id": str(db_product.id),
+            "id": db_product.shopify_product_id,  # Use Shopify ID consistently
             "shopify_id": db_product.shopify_product_id,  # Keep Shopify ID for cart/checkout
             "title": db_product.title,
             "description": db_product.description or "",

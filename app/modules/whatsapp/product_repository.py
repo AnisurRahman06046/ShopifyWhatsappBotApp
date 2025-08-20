@@ -233,11 +233,11 @@ class ProductRepository:
         }
     
     async def get_product_by_id(self, store_id: str, product_id: str) -> Optional[Product]:
-        """Get a specific product by ID"""
+        """Get a specific product by Shopify product ID"""
         result = await self.db.execute(
             select(Product).where(
                 Product.store_id == store_id,
-                Product.id == product_id
+                Product.shopify_product_id == str(product_id)
             ).options(
                 selectinload(Product.variants),
                 selectinload(Product.images)
