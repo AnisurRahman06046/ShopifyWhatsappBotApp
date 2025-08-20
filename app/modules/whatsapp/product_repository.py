@@ -74,8 +74,12 @@ class ProductRepository:
     async def _sync_variants(self, product: Product, shopify_variants: List[Dict[str, Any]]):
         """Sync product variants"""
         
-        # Get existing variants
-        existing_variants = {v.shopify_variant_id: v for v in product.variants}
+        # Get existing variants with explicit query (avoid relationship access after commit)
+        result = await self.db.execute(
+            select(ProductVariant).where(ProductVariant.product_id == product.id)
+        )
+        existing_variants_list = result.scalars().all()
+        existing_variants = {v.shopify_variant_id: v for v in existing_variants_list}
         shopify_variant_ids = {str(v["id"]) for v in shopify_variants}
         
         # Update or create variants
@@ -132,8 +136,12 @@ class ProductRepository:
     async def _sync_images(self, product: Product, shopify_images: List[Dict[str, Any]]):
         """Sync product images"""
         
-        # Get existing images
-        existing_images = {i.shopify_image_id: i for i in product.images}
+        # Get existing images with explicit query (avoid relationship access after commit)
+        result = await self.db.execute(
+            select(ProductImage).where(ProductImage.product_id == product.id)
+        )
+        existing_images_list = result.scalars().all()
+        existing_images = {i.shopify_image_id: i for i in existing_images_list}
         shopify_image_ids = {str(i["id"]) for i in shopify_images}
         
         # Update or create images
