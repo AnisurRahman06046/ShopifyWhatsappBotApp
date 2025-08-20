@@ -1028,25 +1028,25 @@ async def register_webhooks(shop: str, access_token: str):
     # Ensure REDIRECT_URI doesn't have trailing slash
     base_url = settings.REDIRECT_URI.rstrip('/')
     
-    # List of webhooks to register (using correct Shopify webhook topics)
+    # List of webhooks to register (using exact Shopify webhook topics from API response)
     webhooks = [
         {
-            "topic": "APP_UNINSTALLED",  # Correct format for Shopify webhook topic
+            "topic": "app/uninstalled",  # Correct format from Shopify API response
             "address": f"{base_url}/shopify/webhooks/app/uninstalled",
             "format": "json"
         },
         {
-            "topic": "CUSTOMERS_DATA_REQUEST",
+            "topic": "customers/data_request",
             "address": f"{base_url}/shopify/gdpr/customers/data_request",
             "format": "json"
         },
         {
-            "topic": "CUSTOMERS_REDACT",
+            "topic": "customers/redact",
             "address": f"{base_url}/shopify/gdpr/customers/redact",
             "format": "json"
         },
         {
-            "topic": "SHOP_REDACT",
+            "topic": "shop/redact",
             "address": f"{base_url}/shopify/gdpr/shop/redact",
             "format": "json"
         }
