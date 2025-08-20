@@ -195,6 +195,13 @@ class MessageProcessor:
                 )
                 return
             
+            # Check if products have variants - if not, fallback to Shopify API temporarily
+            products_with_variants = [p for p in products if p.variants]
+            if len(products_with_variants) == 0:
+                print("[WARNING] No variants found in database, falling back to Shopify API")
+                shopify_products = await self.shopify.get_products(limit=20)
+                return await self._show_products_fallback(from_number, shopify_products)
+            
             # Create sections for list message (max 10 items per section for WhatsApp)
             sections = []
             current_section = {
