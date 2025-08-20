@@ -578,6 +578,27 @@ async def setup_page(shop: str = Query(...), db: AsyncSession = Depends(get_asyn
 
 # GDPR and App Lifecycle Endpoints (Required by Shopify)
 
+@router.get("/test-credentials/{shop}")
+async def test_credentials(shop: str, db: AsyncSession = Depends(get_async_db)):
+    """Test endpoint to check store credentials"""
+    repo = ShopifyStoreRepository(db)
+    store = await repo.get_store_by_url(shop)
+    
+    if store:
+        return {
+            "store": shop,
+            "whatsapp_enabled": store.whatsapp_enabled,
+            "has_whatsapp_token": bool(store.whatsapp_token),
+            "has_phone_number_id": bool(store.whatsapp_phone_number_id),
+            "has_verify_token": bool(store.whatsapp_verify_token),
+            "has_business_account_id": bool(store.whatsapp_business_account_id),
+            "has_access_token": bool(store.access_token),
+            "has_welcome_message": bool(store.welcome_message)
+        }
+    else:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+
 @router.post("/manual-uninstall")
 async def manual_uninstall(shop: str = Query(...), db: AsyncSession = Depends(get_async_db)):
     """Manually uninstall app for a store (for testing/admin use)"""
@@ -587,14 +608,21 @@ async def manual_uninstall(shop: str = Query(...), db: AsyncSession = Depends(ge
         
         # Clean up store data
         repo = ShopifyStoreRepository(db)
+        
+        # Get store before clearing
         store = await repo.get_store_by_url(shop)
         
         if store:
-            # Mark store as uninstalled
-            await repo.mark_store_uninstalled(shop)
+            print(f"[DEBUG] Before clearing - WhatsApp token exists: {bool(store.whatsapp_token)}")
+            print(f"[DEBUG] Before clearing - Phone ID exists: {bool(store.whatsapp_phone_number_id)}")
             
-            # Clear sensitive credentials
-            await repo.clear_store_credentials(shop)
+            # Mark store as uninstalled and clear all credentials in one transaction
+            success = await repo.mark_store_uninstalled_and_clear_credentials(shop)
+            
+            # Refresh store to get updated values
+            await db.refresh(store)
+            print(f"[DEBUG] After clearing - WhatsApp token exists: {bool(store.whatsapp_token)}")
+            print(f"[DEBUG] After clearing - Phone ID exists: {bool(store.whatsapp_phone_number_id)}")
             
             print(f"[INFO] Manual uninstall completed for store: {shop}")
             
@@ -603,8 +631,14 @@ async def manual_uninstall(shop: str = Query(...), db: AsyncSession = Depends(ge
                 "message": f"App uninstalled successfully for {shop}",
                 "details": {
                     "store": shop,
-                    "whatsapp_enabled": False,
-                    "credentials_cleared": True
+                    "whatsapp_enabled": store.whatsapp_enabled,
+                    "credentials_cleared": {
+                        "whatsapp_token": store.whatsapp_token is None,
+                        "phone_number_id": store.whatsapp_phone_number_id is None,
+                        "verify_token": store.whatsapp_verify_token is None,
+                        "business_account_id": store.whatsapp_business_account_id is None,
+                        "access_token": store.access_token is None
+                    }
                 }
             }
         else:
@@ -649,14 +683,13 @@ async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async
         store = await repo.get_store_by_url(shop_domain)
         
         if store:
-            # Mark store as uninstalled instead of deleting (for compliance)
-            await repo.mark_store_uninstalled(shop_domain)
+            # Mark store as uninstalled and clear all credentials in one transaction
+            success = await repo.mark_store_uninstalled_and_clear_credentials(shop_domain)
             
-            # Clean up sensitive data
-            await repo.clear_store_credentials(shop_domain)
-            
-            # Log uninstallation
-            print(f"[INFO] App uninstalled successfully for store: {shop_domain}")
+            if success:
+                print(f"[INFO] App uninstalled successfully for store: {shop_domain}")
+            else:
+                print(f"[ERROR] Failed to uninstall app for store: {shop_domain}")
         else:
             print(f"[WARNING] Store not found in database: {shop_domain}")
         

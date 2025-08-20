@@ -113,6 +113,30 @@ class ShopifyStoreRepository:
 
     # GDPR Compliance Methods
     
+    async def mark_store_uninstalled_and_clear_credentials(self, store_url: str):
+        """Mark store as uninstalled and clear all credentials in one transaction"""
+        result = await self.db.execute(
+            select(ShopifyStore).where(ShopifyStore.store_url == store_url)
+        )
+        store = result.scalar_one_or_none()
+        if store:
+            # Mark as uninstalled
+            store.whatsapp_enabled = False
+            
+            # Clear all sensitive credentials
+            store.whatsapp_token = None
+            store.whatsapp_verify_token = None
+            store.whatsapp_phone_number_id = None
+            store.whatsapp_business_account_id = None
+            store.access_token = None
+            store.welcome_message = None
+            
+            # Commit all changes at once
+            await self.db.commit()
+            print(f"[INFO] Store uninstalled and credentials cleared for: {store_url}")
+            return True
+        return False
+    
     async def mark_store_uninstalled(self, store_url: str):
         """Mark store as uninstalled instead of deleting for compliance"""
         result = await self.db.execute(
