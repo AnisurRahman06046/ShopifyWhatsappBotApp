@@ -202,15 +202,13 @@ class MessageProcessor:
                 shopify_products = await self.shopify.get_products(limit=20)
                 return await self._show_products_fallback(from_number, shopify_products)
             
-            # Create sections for list message (max 10 items per section for WhatsApp)
-            sections = []
-            current_section = {
+            # Use same single-section format as working API fallback
+            sections = [{
                 "title": "Available Products",
                 "rows": []
-            }
-            sections.append(current_section)
+            }]
             
-            for i, product in enumerate(products):
+            for product in products[:10]:  # Limit to 10 products like API fallback
                 # Get the first variant for pricing
                 first_variant = product.variants[0] if product.variants else None
                 if first_variant:
@@ -220,16 +218,7 @@ class MessageProcessor:
                     price_text = "Price on request"
                     print(f"[DEBUG] Product {product.title}: NO VARIANTS FOUND")
                 
-                # WhatsApp limit: max 10 items per section
-                if len(current_section["rows"]) >= 10:
-                    # Create new section
-                    current_section = {
-                        "title": f"More Products ({len(sections) + 1})",
-                        "rows": []
-                    }
-                    sections.append(current_section)
-                
-                current_section["rows"].append({
+                sections[0]["rows"].append({
                     "id": f"product_{product.id}",
                     "title": product.title[:24],  # WhatsApp limit
                     "description": price_text
