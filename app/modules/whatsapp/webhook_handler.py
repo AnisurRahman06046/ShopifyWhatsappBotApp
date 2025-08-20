@@ -93,12 +93,13 @@ async def handle_messages(value: dict, db: AsyncSession):
         # Get or create session
         session = await whatsapp_repo.get_or_create_session(from_number, store.store_url)
         
-        # Create message processor
+        # Create message processor with database session for product caching
         processor = MessageProcessor(
             whatsapp_service=whatsapp_service,
             shopify_service=shopify_service,
             whatsapp_repo=whatsapp_repo,
-            store=store
+            store=store,
+            db_session=db  # Pass database session for product repository
         )
         
         # Process based on message type
