@@ -73,6 +73,7 @@ class ProductRepository:
         # Update or create variants
         for variant_data in shopify_variants:
             variant_id = str(variant_data["id"])
+            print(f"[DEBUG] Processing variant {variant_id}: price=${variant_data.get('price', 0)}")
             
             if variant_id in existing_variants:
                 # Update existing variant

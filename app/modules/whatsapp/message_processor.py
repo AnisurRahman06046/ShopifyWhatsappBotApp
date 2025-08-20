@@ -179,11 +179,11 @@ class MessageProcessor:
             return await self._show_products_fallback(from_number, products)
         
         try:
-            # Get products from database instead of Shopify API
+            # Get ALL products from database instead of Shopify API (no pagination)
             result = await self.product_repo.get_products_for_browsing(
                 store_id=self.store.id, 
-                page=page, 
-                limit=10
+                page=1, 
+                limit=100  # Show all products at once
             )
             
             products = result["products"]
@@ -204,7 +204,12 @@ class MessageProcessor:
             for product in products:
                 # Get the first variant for pricing
                 first_variant = product.variants[0] if product.variants else None
-                price_text = f"${first_variant.price:.2f}" if first_variant else "Price on request"
+                if first_variant:
+                    price_text = f"${first_variant.price:.2f}"
+                    print(f"[DEBUG] Product {product.title}: price=${first_variant.price}, variant_id={first_variant.shopify_variant_id}")
+                else:
+                    price_text = "Price on request"
+                    print(f"[DEBUG] Product {product.title}: NO VARIANTS FOUND")
                 
                 sections[0]["rows"].append({
                     "id": f"product_{product.id}",
@@ -212,10 +217,8 @@ class MessageProcessor:
                     "description": price_text
                 })
             
-            # Add navigation if there are more products
-            nav_text = f"📦 Here are our available products (Page {page}):"
-            if result["has_more"]:
-                nav_text += f"\n\n📄 Showing {len(products)} of {result['total_count']} products"
+            # Simple product listing without pagination
+            nav_text = f"📦 Here are our available products:"
             
             await self.whatsapp.send_list_message(
                 to=from_number,
@@ -315,7 +318,7 @@ class MessageProcessor:
         # Get the first image
         first_image = db_product.images[0] if db_product.images else None
         
-        return {
+        result = {
             "id": str(db_product.id),
             "shopify_id": db_product.shopify_product_id,  # Keep Shopify ID for cart/checkout
             "title": db_product.title,
@@ -326,6 +329,8 @@ class MessageProcessor:
             "inventory_quantity": first_variant.inventory_quantity if first_variant else 0,
             "available": first_variant.available if first_variant else False
         }
+        print(f"[DEBUG] Converted product {db_product.title}: price=${result['price']}, variant_id={result['variant_id']}")
+        return result
 
     async def add_to_cart(self, from_number: str, product_id: str, session, quantity: int = 1):
         """Add product to cart with specified quantity"""
