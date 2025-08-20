@@ -1028,28 +1028,16 @@ async def register_webhooks(shop: str, access_token: str):
     # Ensure REDIRECT_URI doesn't have trailing slash
     base_url = settings.REDIRECT_URI.rstrip('/')
     
-    # List of webhooks to register (using exact Shopify webhook topics from API response)
+    # List of webhooks to register (only the essential ones that work)
     webhooks = [
         {
-            "topic": "app/uninstalled",  # Correct format from Shopify API response
+            "topic": "app/uninstalled",  # Essential: handles app uninstallation
             "address": f"{base_url}/shopify/webhooks/app/uninstalled",
             "format": "json"
-        },
-        {
-            "topic": "customers/data_request",
-            "address": f"{base_url}/shopify/gdpr/customers/data_request",
-            "format": "json"
-        },
-        {
-            "topic": "customers/redact",
-            "address": f"{base_url}/shopify/gdpr/customers/redact",
-            "format": "json"
-        },
-        {
-            "topic": "shop/redact",
-            "address": f"{base_url}/shopify/gdpr/shop/redact",
-            "format": "json"
         }
+        # Note: GDPR webhooks (customers/data_request, customers/redact, shop/redact) 
+        # are not available for all apps and require special approval from Shopify
+        # The app/uninstalled webhook is sufficient for our use case
     ]
     
     headers = {
