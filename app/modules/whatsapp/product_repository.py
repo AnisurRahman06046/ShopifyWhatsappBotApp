@@ -54,13 +54,22 @@ class ProductRepository:
         
         # Handle variants
         if "variants" in shopify_product:
+            print(f"[DEBUG] Starting variant sync for product {product.title}")
+            print(f"[DEBUG] Shopify provided {len(shopify_product['variants'])} variants")
             await self._sync_variants(product, shopify_product["variants"])
+            print(f"[DEBUG] Completed variant sync for product {product.title}")
         
         # Handle images
         if "images" in shopify_product:
             await self._sync_images(product, shopify_product["images"])
         
+        # Flush to generate IDs but don't commit yet
+        await self.db.flush()
+        print(f"[DEBUG] After flush - Product {product.title} has {len(product.variants)} variants in session")
+        
+        # Now commit the transaction
         await self.db.commit()
+        print(f"[DEBUG] Successfully committed product {product.title} with variants")
         return product
     
     async def _sync_variants(self, product: Product, shopify_variants: List[Dict[str, Any]]):
@@ -113,6 +122,7 @@ class ProductRepository:
                     shopify_created_at=datetime.fromisoformat(variant_data["created_at"].replace("Z", "+00:00")).replace(tzinfo=None),
                     shopify_updated_at=datetime.fromisoformat(variant_data["updated_at"].replace("Z", "+00:00")).replace(tzinfo=None)
                 )
+                print(f"[DEBUG] Creating new variant: {variant.title} (${variant.price}) for product_id={product.id}")
                 self.db.add(variant)
         
         # Delete variants that no longer exist in Shopify
@@ -174,6 +184,7 @@ class ProductRepository:
     async def get_products_for_browsing(self, store_id: str, page: int = 1, limit: int = 10, search: str = None) -> Dict[str, Any]:
         """Get products for WhatsApp browsing (from database, not Shopify API)"""
         
+        # Try explicit join to force variant loading
         query = select(Product).where(
             Product.store_id == store_id,
             Product.status == "active"
@@ -192,6 +203,10 @@ class ProductRepository:
         
         result = await self.db.execute(query)
         products = result.scalars().all()
+        
+        # Force refresh products to load variants from database
+        for product in products:
+            await self.db.refresh(product, ["variants", "images"])
         
         # Debug: Check if variants are loaded
         for product in products:
