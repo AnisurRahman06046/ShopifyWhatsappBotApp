@@ -19,7 +19,8 @@ class Settings(BaseSettings):
     # Shopify App Configuration
     SHOPIFY_API_KEY: str
     SHOPIFY_API_SECRET: str
-    SHOPIFY_SCOPES: str = "read_products,read_orders,write_orders"
+    SHOPIFY_WEBHOOK_SECRET: str = ""
+    SHOPIFY_SCOPES: str = "read_products,read_orders,write_orders,write_draft_orders,read_customers,write_customers"
     
     # App Settings
     ENVIRONMENT: str = "development"
