@@ -193,6 +193,12 @@ class ProductRepository:
         result = await self.db.execute(query)
         products = result.scalars().all()
         
+        # Debug: Check if variants are loaded
+        for product in products:
+            print(f"[DEBUG] Product {product.title}: {len(product.variants)} variants loaded")
+            for variant in product.variants:
+                print(f"[DEBUG]   - Variant {variant.title}: ${variant.price}")
+        
         # Get total count
         count_query = select(Product).where(
             Product.store_id == store_id,
