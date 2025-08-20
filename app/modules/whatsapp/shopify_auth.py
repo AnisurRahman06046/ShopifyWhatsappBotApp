@@ -52,10 +52,19 @@ async def configure_whatsapp(
         print(f"[INFO] First WhatsApp configuration - triggering product sync for {shop}")
         
         try:
-            sync_service = ProductSyncService(db)
-            # Run sync in background (don't wait for it to complete)
+            # Import required modules for background task
             import asyncio
-            asyncio.create_task(sync_service.initial_product_sync(shop))
+            from app.core.database import AsyncSessionLocal
+            from app.modules.whatsapp.product_sync_service import ProductSyncService
+            
+            # Create background task with new database session
+            async def background_sync():
+                async with AsyncSessionLocal() as new_session:
+                    sync_service = ProductSyncService(new_session)
+                    await sync_service.initial_product_sync(shop)
+            
+            # Run sync in background (don't wait for it to complete)
+            asyncio.create_task(background_sync())
             print(f"[INFO] Product sync initiated in background for {shop}")
         except Exception as e:
             print(f"[WARNING] Failed to initiate product sync: {str(e)}")
