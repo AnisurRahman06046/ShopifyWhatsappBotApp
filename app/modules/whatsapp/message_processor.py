@@ -195,13 +195,15 @@ class MessageProcessor:
                 )
                 return
             
-            # Create sections for list message
-            sections = [{
+            # Create sections for list message (max 10 items per section for WhatsApp)
+            sections = []
+            current_section = {
                 "title": "Available Products",
                 "rows": []
-            }]
+            }
+            sections.append(current_section)
             
-            for product in products:
+            for i, product in enumerate(products):
                 # Get the first variant for pricing
                 first_variant = product.variants[0] if product.variants else None
                 if first_variant:
@@ -211,7 +213,16 @@ class MessageProcessor:
                     price_text = "Price on request"
                     print(f"[DEBUG] Product {product.title}: NO VARIANTS FOUND")
                 
-                sections[0]["rows"].append({
+                # WhatsApp limit: max 10 items per section
+                if len(current_section["rows"]) >= 10:
+                    # Create new section
+                    current_section = {
+                        "title": f"More Products ({len(sections) + 1})",
+                        "rows": []
+                    }
+                    sections.append(current_section)
+                
+                current_section["rows"].append({
                     "id": f"product_{product.id}",
                     "title": product.title[:24],  # WhatsApp limit
                     "description": price_text
