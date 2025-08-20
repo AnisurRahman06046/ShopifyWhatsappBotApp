@@ -36,8 +36,8 @@ class ProductRepository:
                 status=shopify_product.get("status", "active"),
                 handle=shopify_product.get("handle", ""),
                 tags=shopify_product.get("tags", ""),
-                shopify_created_at=datetime.fromisoformat(shopify_product["created_at"].replace("Z", "+00:00")),
-                shopify_updated_at=datetime.fromisoformat(shopify_product["updated_at"].replace("Z", "+00:00"))
+                shopify_created_at=datetime.fromisoformat(shopify_product["created_at"].replace("Z", "+00:00")).replace(tzinfo=None),
+                shopify_updated_at=datetime.fromisoformat(shopify_product["updated_at"].replace("Z", "+00:00")).replace(tzinfo=None)
             )
             self.db.add(product)
             await self.db.flush()  # Get the ID
@@ -50,7 +50,7 @@ class ProductRepository:
             product.status = shopify_product.get("status", product.status)
             product.handle = shopify_product.get("handle", product.handle)
             product.tags = shopify_product.get("tags", product.tags)
-            product.shopify_updated_at = datetime.fromisoformat(shopify_product["updated_at"].replace("Z", "+00:00"))
+            product.shopify_updated_at = datetime.fromisoformat(shopify_product["updated_at"].replace("Z", "+00:00")).replace(tzinfo=None)
         
         # Handle variants
         if "variants" in shopify_product:
@@ -90,7 +90,7 @@ class ProductRepository:
                 variant.weight_unit = variant_data.get("weight_unit", "kg")
                 variant.position = variant_data.get("position", 1)
                 variant.available = variant_data.get("available", True)
-                variant.shopify_updated_at = datetime.fromisoformat(variant_data["updated_at"].replace("Z", "+00:00"))
+                variant.shopify_updated_at = datetime.fromisoformat(variant_data["updated_at"].replace("Z", "+00:00")).replace(tzinfo=None)
             else:
                 # Create new variant
                 variant = ProductVariant(
@@ -109,15 +109,15 @@ class ProductRepository:
                     weight_unit=variant_data.get("weight_unit", "kg"),
                     position=variant_data.get("position", 1),
                     available=variant_data.get("available", True),
-                    shopify_created_at=datetime.fromisoformat(variant_data["created_at"].replace("Z", "+00:00")),
-                    shopify_updated_at=datetime.fromisoformat(variant_data["updated_at"].replace("Z", "+00:00"))
+                    shopify_created_at=datetime.fromisoformat(variant_data["created_at"].replace("Z", "+00:00")).replace(tzinfo=None),
+                    shopify_updated_at=datetime.fromisoformat(variant_data["updated_at"].replace("Z", "+00:00")).replace(tzinfo=None)
                 )
                 self.db.add(variant)
         
         # Delete variants that no longer exist in Shopify
         for existing_id, variant in existing_variants.items():
             if existing_id not in shopify_variant_ids:
-                await self.db.delete(variant)
+                self.db.delete(variant)
     
     async def _sync_images(self, product: Product, shopify_images: List[Dict[str, Any]]):
         """Sync product images"""
@@ -154,7 +154,7 @@ class ProductRepository:
         # Delete images that no longer exist in Shopify
         for existing_id, image in existing_images.items():
             if existing_id not in shopify_image_ids:
-                await self.db.delete(image)
+                self.db.delete(image)
     
     async def delete_product(self, store_id: str, shopify_product_id: str):
         """Delete a product by Shopify product ID"""
@@ -166,7 +166,7 @@ class ProductRepository:
         )
         product = result.scalar_one_or_none()
         if product:
-            await self.db.delete(product)
+            self.db.delete(product)
             await self.db.commit()
             print(f"[INFO] Deleted product {shopify_product_id} for store {store_id}")
     

@@ -104,19 +104,24 @@ class ProductSyncService:
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             while True:
-                # Build URL with pagination
-                url = f"https://{store_url}/admin/api/2024-10/products.json?limit={limit}&status=any"
+                # Build URL with pagination - try different statuses
+                url = f"https://{store_url}/admin/api/2024-10/products.json?limit={limit}&status=active"
                 if page_info:
                     url += f"&page_info={page_info}"
                 
                 try:
+                    print(f"[DEBUG] API call: {url}")
+                    print(f"[DEBUG] Headers: X-Shopify-Access-Token: {access_token[:10]}...")
                     response = await client.get(url, headers=headers)
                     
+                    print(f"[DEBUG] Response status: {response.status_code}")
                     if response.status_code == 200:
                         data = response.json()
                         products = data.get("products", [])
+                        print(f"[DEBUG] Raw response products count: {len(products)}")
                         
                         if not products:
+                            print("[DEBUG] No products found, breaking loop")
                             break
                         
                         all_products.extend(products)
@@ -144,7 +149,8 @@ class ProductSyncService:
                         continue
                         
                     else:
-                        print(f"[ERROR] Failed to fetch products: {response.status_code} {response.text}")
+                        print(f"[ERROR] Failed to fetch products: {response.status_code}")
+                        print(f"[ERROR] Response text: {response.text}")
                         break
                         
                 except Exception as e:
