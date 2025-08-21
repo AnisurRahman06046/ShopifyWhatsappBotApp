@@ -262,9 +262,39 @@ class MessageProcessor:
                 
                 sections.append(section)
             
+            # Add "View More" option if there are more products
+            total_count = result.get("total_count", 0)
+            has_more = (page * 10) < total_count
+            remaining = total_count - (page * 10)
+            
+            if has_more:
+                # Add navigation section
+                nav_section = {
+                    "title": "Navigation",
+                    "rows": [
+                        {
+                            "id": f"more_all_{page + 1}",
+                            "title": f"➡️ View More Products",
+                            "description": f"See next {min(remaining, 10)} of {remaining} remaining"
+                        },
+                        {
+                            "id": "browse_products",
+                            "title": "🏪 Back to Categories",
+                            "description": "Browse by category"
+                        }
+                    ]
+                }
+                sections.append(nav_section)
+            
             # Smart product listing with pagination info
             total_count = result.get("total_count", 0)
-            nav_text = f"📦 All Products (Page {page}):\nShowing {len(products)} of {total_count} total"
+            has_more = (page * 10) < total_count
+            remaining = total_count - (page * 10)
+            
+            if has_more:
+                nav_text = f"📦 All Products (Page {page}):\nShowing {len(products)} of {total_count} total\n\n⚠️ More products available! Select 'View More' below to see the next {min(remaining, 10)} products."
+            else:
+                nav_text = f"📦 All Products (Page {page}):\nShowing {len(products)} of {total_count} total"
             
             print(f"[DEBUG] Attempting to send list message with {len(sections)} sections")
             print(f"[DEBUG] Section details: {[(s['title'], len(s['rows'])) for s in sections]}")
@@ -287,34 +317,8 @@ class MessageProcessor:
                     message=f"📦 Our Products:\n\n{product_list}\n\nReply with product name to view details"
                 )
             
-            # Add "View More" button if there are more products - ALWAYS send this
-            total_count = result.get("total_count", len(products))
-            has_more = (page * 10) < total_count
-            remaining = total_count - (page * 10)
-            
             print(f"[DEBUG] Pagination check: page={page}, total_count={total_count}, has_more={has_more}, remaining={remaining}")
-            
-            buttons = []
-            
-            if has_more:
-                buttons.append({"id": f"more_all_{page + 1}", "title": f"➡️ View More ({remaining} left)"})
-            
-            buttons.extend([
-                {"id": "browse_products", "title": "🏪 Back to Categories"}
-            ])
-            
-            print(f"[DEBUG] Sending buttons: {buttons}")
-            
-            # Add a small delay to ensure the list message is processed first
-            import asyncio
-            await asyncio.sleep(0.5)
-            
-            await self.whatsapp.send_button_message(
-                to=from_number,
-                text="🔙 Continue browsing:",
-                buttons=buttons
-            )
-            print(f"[DEBUG] Button message sent successfully")
+            print(f"[DEBUG] Navigation included in list message sections")
             
             print(f"[INFO] ✅ Served {len(products)} products from database (NO API CALL)")
             
