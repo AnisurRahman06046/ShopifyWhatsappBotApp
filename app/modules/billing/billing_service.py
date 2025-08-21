@@ -147,6 +147,8 @@ class BillingService:
         """Create a recurring application charge in Shopify"""
         
         try:
+            logger.info(f"Starting charge creation for shop: {shop}")
+            
             # Log the billing event
             store_result = await self.db.execute(
                 select(ShopifyStore).where(ShopifyStore.store_url == shop)
@@ -154,7 +156,10 @@ class BillingService:
             store = store_result.scalar_one_or_none()
             
             if not store:
+                logger.error(f"Store {shop} not found in billing service")
                 raise ValueError(f"Store {shop} not found")
+            
+            logger.info(f"Found store: {store.shop_name} (ID: {store.id})")
             
             # Prepare the charge data
             charge_data = {
@@ -180,8 +185,13 @@ class BillingService:
             
             url = f"https://{shop}/admin/api/2024-10/recurring_application_charges.json"
             
+            logger.info(f"Making Shopify API call to: {url}")
+            logger.info(f"Charge data: {charge_data}")
+            
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, headers=headers, json=charge_data)
+                
+                logger.info(f"Shopify API response: Status {response.status_code}, Body: {response.text[:500]}")
                 
                 if response.status_code != 201:
                     # Log error event

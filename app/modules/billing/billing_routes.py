@@ -364,33 +364,42 @@ async def create_charge(
     
     # Skip billing for free plan
     if plan.price == 0:
-        # Create free subscription directly
-        service = BillingService(db)
-        
-        # Cancel any existing subscription
-        await service.cancel_subscription(shop, store.access_token)
-        
-        # Create new free subscription
-        subscription = StoreSubscription(
-            store_id=store.id,
-            plan_id=plan.id,
-            status="active",
-            activated_at=datetime.utcnow()
-        )
-        db.add(subscription)
-        await db.commit()
-        
-        return {
-            "status": "success",
-            "message": "Free plan activated",
-            "redirect_url": f"/shopify/admin?shop={shop}"
-        }
+        try:
+            logger.info(f"Activating free plan for shop: {shop}")
+            # Create free subscription directly
+            service = BillingService(db)
+            
+            # Cancel any existing subscription
+            await service.cancel_subscription(shop, store.access_token)
+            
+            # Create new free subscription
+            subscription = StoreSubscription(
+                store_id=store.id,
+                plan_id=plan.id,
+                status="active",
+                activated_at=datetime.utcnow()
+            )
+            db.add(subscription)
+            await db.commit()
+            
+            logger.info(f"Free plan activated successfully for shop: {shop}")
+            return {
+                "status": "success",
+                "message": "Free plan activated",
+                "redirect_url": f"/shopify/admin?shop={shop}"
+            }
+        except Exception as e:
+            logger.error(f"Error activating free plan for {shop}: {str(e)}")
+            import traceback
+            logger.error(f"Free plan traceback: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"Failed to activate free plan: {str(e)}")
     
     # Create recurring charge
     service = BillingService(db)
     return_url = f"{settings.REDIRECT_URI}/billing/confirm?shop={shop}"
     
     try:
+        logger.info(f"Creating charge for shop: {shop}, plan: {plan.name}, price: {plan.price}")
         charge_result = await service.create_recurring_charge(
             shop=shop,
             access_token=store.access_token,
@@ -405,8 +414,10 @@ async def create_charge(
         }
         
     except Exception as e:
-        logger.error(f"Error creating charge: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error creating charge for {shop}: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to create charge: {str(e)}")
 
 
 @router.get("/confirm")
