@@ -18,9 +18,11 @@ app.include_router(bot_router)
 # WhatsApp and Shopify routes
 from app.modules.whatsapp.shopify_auth import router as shopify_router
 from app.modules.whatsapp.webhook_handler import router as whatsapp_router
+from app.modules.billing.billing_routes import router as billing_router
 
 app.include_router(shopify_router)
 app.include_router(whatsapp_router)
+app.include_router(billing_router)
 
 @app.get("/")
 async def root():

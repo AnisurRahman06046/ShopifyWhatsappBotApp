@@ -369,7 +369,16 @@ async def shopify_callback(
     # Register webhooks for app lifecycle events
     await register_webhooks(shop, access_token)
     
-    # Redirect to setup page
+    # Check if store has an active subscription
+    from app.modules.billing.billing_service import BillingService
+    billing_service = BillingService(db)
+    subscription = await billing_service.get_store_subscription(existing_store.id if existing_store else store.id)
+    
+    # If no active subscription, redirect to billing page
+    if not subscription or subscription.status != "active":
+        return RedirectResponse(url=f"/billing/select-plan?shop={shop}")
+    
+    # Otherwise redirect to setup page
     return RedirectResponse(url=f"/shopify/setup?shop={shop}")
 
 

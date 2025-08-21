@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, Integer, DateTime, Text, Boolean
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
@@ -35,3 +36,6 @@ class ShopifyStore(Base):
     welcome_message = Column(Text, default="👋 Welcome! Click 'Browse Products' to start shopping.")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    subscription = relationship("StoreSubscription", back_populates="store", uselist=False)

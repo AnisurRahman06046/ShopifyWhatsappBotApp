@@ -195,12 +195,14 @@ class MessageProcessor:
                 )
                 return
             
-            # Check if products have variants - if not, fallback to Shopify API temporarily
+            # Check if products have variants - for products without variants, create a fallback price
             products_with_variants = [p for p in products if p.variants]
-            if len(products_with_variants) == 0:
-                print("[WARNING] No variants found in database, falling back to Shopify API")
-                shopify_products = await self.shopify.get_products(limit=20)
-                return await self._show_products_fallback(from_number, shopify_products)
+            print(f"[DEBUG] Found {len(products)} total products, {len(products_with_variants)} with variants")
+            
+            # If NO products have variants, still try to show them with fallback pricing
+            if len(products_with_variants) == 0 and len(products) > 0:
+                print("[INFO] No variants found, showing products with fallback pricing")
+                # Don't fallback to API - show products without variants
             
             # Use same single-section format as working API fallback
             sections = [{
@@ -209,14 +211,15 @@ class MessageProcessor:
             }]
             
             for product in products[:10]:  # Limit to 10 products like API fallback
-                # Get the first variant for pricing
+                # Get the first variant for pricing, or use fallback for products without variants
                 first_variant = product.variants[0] if product.variants else None
                 if first_variant:
                     price_text = f"${first_variant.price:.2f}"
                     print(f"[DEBUG] Product {product.title}: price=${first_variant.price}, variant_id={first_variant.shopify_variant_id}")
                 else:
-                    price_text = "Price on request"
-                    print(f"[DEBUG] Product {product.title}: NO VARIANTS FOUND")
+                    # For products without variants, show "View Details" instead of price
+                    price_text = "Tap to view details"
+                    print(f"[DEBUG] Product {product.title}: No variants - using fallback text")
                 
                 sections[0]["rows"].append({
                     "id": f"product_{product.shopify_product_id}",
@@ -338,18 +341,36 @@ class MessageProcessor:
         # Get the first image
         first_image = db_product.images[0] if db_product.images else None
         
-        result = {
-            "id": db_product.shopify_product_id,  # Use Shopify ID consistently
-            "shopify_id": db_product.shopify_product_id,  # Keep Shopify ID for cart/checkout
-            "title": db_product.title,
-            "description": db_product.description or "",
-            "price": first_variant.price if first_variant else 0.0,
-            "variant_id": first_variant.shopify_variant_id if first_variant else None,
-            "image_url": first_image.image_url if first_image else None,
-            "inventory_quantity": first_variant.inventory_quantity if first_variant else 0,
-            "available": first_variant.available if first_variant else False
-        }
-        print(f"[DEBUG] Converted product {db_product.title}: price=${result['price']}, variant_id={result['variant_id']}")
+        # For products without variants, we need to create a fallback
+        if not first_variant:
+            print(f"[WARNING] Product {db_product.title} has no variants - creating fallback")
+            result = {
+                "id": db_product.shopify_product_id,
+                "shopify_id": db_product.shopify_product_id,
+                "title": db_product.title,
+                "description": db_product.description or "Contact us for pricing and availability.",
+                "price": 0.0,  # No price available
+                "variant_id": None,  # No variant
+                "image_url": first_image.image_url if first_image else None,
+                "inventory_quantity": 0,
+                "available": False,  # Can't be added to cart without variant
+                "contact_required": True  # Flag for special handling
+            }
+        else:
+            result = {
+                "id": db_product.shopify_product_id,
+                "shopify_id": db_product.shopify_product_id,
+                "title": db_product.title,
+                "description": db_product.description or "",
+                "price": first_variant.price,
+                "variant_id": first_variant.shopify_variant_id,
+                "image_url": first_image.image_url if first_image else None,
+                "inventory_quantity": first_variant.inventory_quantity,
+                "available": first_variant.available,
+                "contact_required": False
+            }
+        
+        print(f"[DEBUG] Converted product {db_product.title}: price=${result['price']}, variant_id={result['variant_id']}, available={result['available']}")
         return result
 
     async def add_to_cart(self, from_number: str, product_id: str, session, quantity: int = 1):

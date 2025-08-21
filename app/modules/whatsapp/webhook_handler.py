@@ -80,6 +80,18 @@ async def handle_messages(value: dict, db: AsyncSession):
         logger.warning(f"Store not found or WhatsApp disabled for phone_number_id: {phone_number_id}")
         return
     
+    # Check billing usage limits
+    from app.modules.billing.billing_service import BillingService
+    billing_service = BillingService(db)
+    usage_check = await billing_service.check_usage_limit(store.id)
+    
+    if usage_check.get("limit_reached", True):
+        # Send message about limit reached
+        logger.warning(f"Message limit reached for store {store.store_url}")
+        # Optionally send a message to the user about the limit
+        # For now, just return to avoid processing
+        return
+    
     # Initialize services
     whatsapp_service = WhatsAppService(store)
     shopify_service = ShopifyService(store.store_url, store.access_token)
@@ -114,3 +126,12 @@ async def handle_messages(value: dict, db: AsyncSession):
         elif message_type == "button":
             button = message.get("button", {})
             await processor.process_button_response(from_number, button, session)
+        
+        # Record usage for billing
+        await billing_service.record_usage(
+            store_id=store.id,
+            record_type="message_sent",
+            quantity=1,
+            phone_number=from_number,
+            message_type=message_type
+        )
