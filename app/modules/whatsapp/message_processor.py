@@ -287,10 +287,6 @@ class MessageProcessor:
                 sections.append(nav_section)
             
             # Smart product listing with pagination info
-            total_count = result.get("total_count", 0)
-            has_more = (page * 10) < total_count
-            remaining = total_count - (page * 10)
-            
             if has_more:
                 nav_text = f"📦 All Products (Page {page}):\nShowing {len(products)} of {total_count} total\n\n⚠️ More products available! Select 'View More' below to see the next {min(remaining, 10)} products."
             else:
