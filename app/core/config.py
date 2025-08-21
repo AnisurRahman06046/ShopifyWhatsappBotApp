@@ -7,7 +7,7 @@ load_dotenv()
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql://postgres:anis1234@localhost/whatsapp_shopify_bot"
+    DATABASE_URL: str
     REDIS_HOST: str
     REDIS_PORT: int
 
@@ -15,22 +15,24 @@ class Settings(BaseSettings):
     BITCOMMERZ_CLIENT_ID: str
     BITCOMMERZ_CLIENT_SECRET: str
     REDIRECT_URI: str
-    
+
     # Shopify App Configuration
     SHOPIFY_API_KEY: str
     SHOPIFY_API_SECRET: str
     SHOPIFY_WEBHOOK_SECRET: str = ""
-    SHOPIFY_SCOPES: str = "read_products,read_orders,write_orders,write_draft_orders,read_customers,write_customers"
-    
+    SHOPIFY_SCOPES: str = (
+        "read_products,read_orders,write_orders,write_draft_orders,read_customers,write_customers"
+    )
+
     # App Settings
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     LOG_LEVEL: str = "info"
-    
+
     # Security
     SECRET_KEY: str
     WEBHOOK_SECRET: str = ""
-    
+
     # WhatsApp credentials are now store-specific, configured by each store owner
 
     class Config:

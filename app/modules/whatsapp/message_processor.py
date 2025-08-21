@@ -786,13 +786,6 @@ Need assistance? Contact our support team!"""
                     "description": f"{uncategorized_count} products"
                 })
             
-            # Add "All Products" option
-            total_products = len(products)
-            sections[0]["rows"].append({
-                "id": "all_products",
-                "title": "📦 All Products",
-                "description": f"{total_products} total products"
-            })
             
             await self.whatsapp.send_list_message(
                 to=from_number,
