@@ -305,11 +305,16 @@ class MessageProcessor:
             
             print(f"[DEBUG] Sending buttons: {buttons}")
             
+            # Add a small delay to ensure the list message is processed first
+            import asyncio
+            await asyncio.sleep(0.5)
+            
             await self.whatsapp.send_button_message(
                 to=from_number,
                 text="🔙 Continue browsing:",
                 buttons=buttons
             )
+            print(f"[DEBUG] Button message sent successfully")
             
             print(f"[INFO] ✅ Served {len(products)} products from database (NO API CALL)")
             
