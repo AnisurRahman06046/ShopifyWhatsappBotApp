@@ -358,9 +358,10 @@ async def shopify_callback(
         existing_store.access_token = access_token
         existing_store.shop_name = shop_data["name"]
         await db.commit()
+        current_store = existing_store
     else:
         # Create new store
-        await repo.create_store(
+        current_store = await repo.create_store(
             store_url=shop,
             access_token=access_token,
             shop_name=shop_data["name"]
@@ -372,7 +373,7 @@ async def shopify_callback(
     # Check if store has an active subscription
     from app.modules.billing.billing_service import BillingService
     billing_service = BillingService(db)
-    subscription = await billing_service.get_store_subscription(existing_store.id if existing_store else store.id)
+    subscription = await billing_service.get_store_subscription(current_store.id)
     
     # If no active subscription, redirect to billing page
     if not subscription or subscription.status != "active":
