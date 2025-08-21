@@ -318,10 +318,16 @@ async def select_plan_page(
                         const data = await response.json();
                         
                         if (data.confirmation_url) {
-                            // Redirect to Shopify confirmation page
+                            // Redirect to Shopify confirmation page for paid plans
                             window.top.location.href = data.confirmation_url;
+                        } else if (data.redirect_url) {
+                            // Redirect to app dashboard for free plan
+                            window.top.location.href = data.redirect_url;
+                        } else if (data.status === 'success') {
+                            // Fallback for successful free plan activation
+                            window.top.location.href = `/shopify/admin?shop=${encodeURIComponent('""" + shop + """')}`;
                         } else {
-                            throw new Error(data.detail || 'Failed to create charge');
+                            throw new Error(data.detail || data.message || 'Failed to create charge');
                         }
                     } catch (error) {
                         document.getElementById('loading').style.display = 'none';
