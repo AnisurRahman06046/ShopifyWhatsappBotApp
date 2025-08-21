@@ -105,7 +105,7 @@ class MessageProcessor:
         """Handle button click actions"""
         
         if button_id == "browse_products":
-            await self.show_products(from_number)
+            await self.show_categories(from_number)
         
         elif button_id == "view_cart":
             await self.show_cart(from_number, session)
@@ -153,9 +153,12 @@ class MessageProcessor:
         elif button_id == "clear_cart":
             await self.clear_cart(from_number, session)
         
-        elif button_id.startswith("products_page_"):
-            page = int(button_id.replace("products_page_", ""))
-            await self.show_products(from_number, page)
+        elif button_id.startswith("category_"):
+            category = button_id.replace("category_", "").replace("_", " ")
+            await self.show_products_by_category(from_number, category)
+        
+        elif button_id == "all_products":
+            await self.show_products(from_number)
         
         elif button_id == "search_products":
             await self.whatsapp.send_message(
@@ -689,3 +692,154 @@ Need assistance? Contact our support team!"""
             text=help_text,
             buttons=buttons
         )
+    
+    async def show_categories(self, from_number: str):
+        """Show product categories for browsing"""
+        
+        if not self.product_repo:
+            await self.show_products(from_number)
+            return
+        
+        try:
+            # Get all products to extract categories
+            result = await self.product_repo.get_products_for_browsing(
+                store_id=self.store.id,
+                page=1,
+                limit=1000  # Get all products to analyze categories
+            )
+            
+            products = result["products"]
+            
+            if not products:
+                await self.whatsapp.send_message(
+                    to=from_number,
+                    message="No products available at the moment."
+                )
+                return
+            
+            # Extract unique categories from product_type
+            categories = {}
+            uncategorized_count = 0
+            
+            for product in products:
+                category = product.product_type.strip() if product.product_type else ""
+                if category:
+                    categories[category] = categories.get(category, 0) + 1
+                else:
+                    uncategorized_count += 1
+            
+            # Create category list
+            sections = [{
+                "title": "Browse by Category",
+                "rows": []
+            }]
+            
+            # Add categories (limit to 9 to leave room for "All Products")
+            for category, count in sorted(categories.items(), key=lambda x: x[1], reverse=True)[:9]:
+                sections[0]["rows"].append({
+                    "id": f"category_{category.lower().replace(' ', '_')}",
+                    "title": f"{category}",
+                    "description": f"{count} products"
+                })
+            
+            # Add "All Products" option
+            total_products = len(products)
+            sections[0]["rows"].append({
+                "id": "all_products",
+                "title": "📦 All Products",
+                "description": f"{total_products} total products"
+            })
+            
+            await self.whatsapp.send_list_message(
+                to=from_number,
+                text=f"🏪 Browse Products by Category:\n\nChoose a category to see products, or view all {total_products} products.",
+                button_text="Browse Categories",
+                sections=sections
+            )
+            
+            print(f"[INFO] ✅ Showed {len(categories)} categories with {total_products} total products")
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to show categories: {str(e)}")
+            await self.show_products(from_number)
+    
+    async def show_products_by_category(self, from_number: str, category: str):
+        """Show products filtered by category"""
+        
+        if not self.product_repo:
+            await self.show_products(from_number)
+            return
+        
+        try:
+            # Get all products and filter by category
+            result = await self.product_repo.get_products_for_browsing(
+                store_id=self.store.id,
+                page=1,
+                limit=1000
+            )
+            
+            all_products = result["products"]
+            
+            # Filter by category
+            category_products = [
+                product for product in all_products 
+                if product.product_type and product.product_type.lower() == category.lower()
+            ]
+            
+            if not category_products:
+                await self.whatsapp.send_message(
+                    to=from_number,
+                    message=f"No products found in '{category}' category.\n\nTry browsing all products or search for specific items."
+                )
+                return
+            
+            # Split products into sections (10 per section)
+            sections = []
+            section_size = 10
+            
+            for i in range(0, len(category_products), section_size):
+                section_products = category_products[i:i + section_size]
+                section_num = (i // section_size) + 1
+                
+                section = {
+                    "title": f"{category} - Page {section_num}" if len(category_products) > section_size else f"{category} Products",
+                    "rows": []
+                }
+                
+                for product in section_products:
+                    first_variant = product.variants[0] if product.variants else None
+                    if first_variant:
+                        price_text = f"${first_variant.price:.2f}"
+                    else:
+                        price_text = "Tap to view details"
+                    
+                    section["rows"].append({
+                        "id": f"product_{product.shopify_product_id}",
+                        "title": product.title[:24],
+                        "description": price_text
+                    })
+                
+                sections.append(section)
+            
+            await self.whatsapp.send_list_message(
+                to=from_number,
+                text=f"📦 {category} Products ({len(category_products)} total):",
+                button_text="View Products",
+                sections=sections
+            )
+            
+            # Add back button
+            await self.whatsapp.send_button_message(
+                to=from_number,
+                text="🔙 Want to browse other categories?",
+                buttons=[
+                    {"id": "browse_products", "title": "🏪 Back to Categories"},
+                    {"id": "search_products", "title": "🔍 Search Products"}
+                ]
+            )
+            
+            print(f"[INFO] ✅ Showed {len(category_products)} products in '{category}' category")
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to show category products: {str(e)}")
+            await self.show_products(from_number)

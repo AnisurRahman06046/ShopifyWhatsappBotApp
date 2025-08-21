@@ -207,11 +207,13 @@ class ProductRepository:
         # Show newest products first, limit for performance
         query = query.order_by(Product.created_at.desc())
         
-        # Smart limit: If searching, show more results; if browsing, limit to 20
+        # Smart limit: If searching, show more results; if browsing, use provided limit
         if search:
-            query = query.limit(30)  # More results for search
+            query = query.limit(min(limit, 50))  # More results for search, max 50
+        elif limit > 100:
+            query = query.limit(limit)  # Allow large limits for category analysis
         else:
-            query = query.limit(20)  # Limit browsing to 20 newest products
+            query = query.limit(min(limit, 20))  # Normal browsing limit
         
         result = await self.db.execute(query)
         products = result.scalars().all()
