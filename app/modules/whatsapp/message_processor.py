@@ -29,16 +29,6 @@ class MessageProcessor:
         elif "checkout" in text:
             await self.start_checkout(from_number, session)
         
-        # Handle search
-        elif text.startswith("search "):
-            search_term = text.replace("search ", "").strip()
-            if search_term:
-                await self.search_products(from_number, search_term)
-            else:
-                await self.whatsapp.send_message(
-                    to=from_number,
-                    message="🔍 Please specify what to search for.\n\nExample: 'search shoes'"
-                )
         
         # Handle help
         elif "help" in text or "?" in text:
@@ -171,11 +161,6 @@ class MessageProcessor:
                 page = int(parts[-1])
                 await self.show_products_by_category(from_number, category, page=page)
         
-        elif button_id == "search_products":
-            await self.whatsapp.send_message(
-                to=from_number,
-                message="🔍 What are you looking for?\n\nType 'search [product name]' to find specific products.\n\nExample: 'search shoes' or 'search iPhone'"
-            )
         
         else:
             await self.send_main_menu(from_number)
@@ -311,8 +296,7 @@ class MessageProcessor:
                 buttons.append({"id": f"more_all_{page + 1}", "title": f"➡️ View More ({remaining} left)"})
             
             buttons.extend([
-                {"id": "browse_products", "title": "🏪 Back to Categories"},
-                {"id": "search_products", "title": "🔍 Search Products"}
+                {"id": "browse_products", "title": "🏪 Back to Categories"}
             ])
             
             await self.whatsapp.send_button_message(
@@ -777,18 +761,29 @@ Need assistance? Contact our support team!"""
                 else:
                     uncategorized_count += 1
             
+            print(f"[DEBUG] Categories found: {categories}")
+            print(f"[DEBUG] Uncategorized products: {uncategorized_count}")
+            
             # Create category list
             sections = [{
                 "title": "Browse by Category",
                 "rows": []
             }]
             
-            # Add categories (limit to 9 to leave room for "All Products")
-            for category, count in sorted(categories.items(), key=lambda x: x[1], reverse=True)[:9]:
+            # Add categories (limit to 8 to leave room for "Uncategorized" and "All Products")
+            for category, count in sorted(categories.items(), key=lambda x: x[1], reverse=True)[:8]:
                 sections[0]["rows"].append({
                     "id": f"category_{category.lower().replace(' ', '_')}",
                     "title": f"{category}",
                     "description": f"{count} products"
+                })
+            
+            # Add uncategorized products if they exist
+            if uncategorized_count > 0:
+                sections[0]["rows"].append({
+                    "id": "category_uncategorized",
+                    "title": "📦 Other Products",
+                    "description": f"{uncategorized_count} products"
                 })
             
             # Add "All Products" option
@@ -830,10 +825,18 @@ Need assistance? Contact our support team!"""
             all_products = result["products"]
             
             # Filter by category
-            category_products = [
-                product for product in all_products 
-                if product.product_type and product.product_type.lower() == category.lower()
-            ]
+            if category.lower() == "uncategorized":
+                # Show products with no category
+                category_products = [
+                    product for product in all_products 
+                    if not product.product_type or product.product_type.strip() == ""
+                ]
+            else:
+                # Show products with matching category
+                category_products = [
+                    product for product in all_products 
+                    if product.product_type and product.product_type.lower() == category.lower()
+                ]
             
             if not category_products:
                 await self.whatsapp.send_message(
@@ -877,9 +880,10 @@ Need assistance? Contact our support team!"""
             sections = [section]
             
             # Send the products for this page
+            category_display = "Other Products" if category.lower() == "uncategorized" else category
             await self.whatsapp.send_list_message(
                 to=from_number,
-                text=f"📦 {category} Products (Page {page}):\nShowing {len(page_products)} of {len(category_products)} total",
+                text=f"📦 {category_display} (Page {page}):\nShowing {len(page_products)} of {len(category_products)} total",
                 button_text="View Products",
                 sections=sections
             )
@@ -899,8 +903,7 @@ Need assistance? Contact our support team!"""
                 })
             
             buttons.extend([
-                {"id": "browse_products", "title": "🏪 Back to Categories"},
-                {"id": "search_products", "title": "🔍 Search Products"}
+                {"id": "browse_products", "title": "🏪 Back to Categories"}
             ])
             
             await self.whatsapp.send_button_message(
