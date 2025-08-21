@@ -155,10 +155,21 @@ class MessageProcessor:
         
         elif button_id.startswith("category_"):
             category = button_id.replace("category_", "").replace("_", " ")
-            await self.show_products_by_category(from_number, category)
+            await self.show_products_by_category(from_number, category, page=1)
         
         elif button_id == "all_products":
-            await self.show_products(from_number)
+            await self.show_products(from_number, page=1)
+        
+        elif button_id.startswith("more_"):
+            # Handle "View More" buttons: more_category_page or more_all_page
+            parts = button_id.replace("more_", "").split("_")
+            if parts[0] == "all":
+                page = int(parts[1])
+                await self.show_products(from_number, page=page)
+            else:
+                category = "_".join(parts[:-1]).replace("_", " ")
+                page = int(parts[-1])
+                await self.show_products_by_category(from_number, category, page=page)
         
         elif button_id == "search_products":
             await self.whatsapp.send_message(
@@ -287,6 +298,20 @@ class MessageProcessor:
                     message=f"📦 Our Products:\n\n{product_list}\n\nReply with product name to view details"
                 )
             
+            
+            # Add "View More" button if there are more products
+            total_count = result.get("total_count", len(products))
+            has_more = (page * 10) < total_count
+            
+            if has_more:
+                await self.whatsapp.send_button_message(
+                    to=from_number,
+                    text=f"📄 Showing {len(products)} of {total_count} products (Page {page})",
+                    buttons=[
+                        {"id": f"more_all_{page + 1}", "title": f"➡️ View More ({total_count - (page * 10)} left)"},
+                        {"id": "browse_products", "title": "🏪 Back to Categories"}
+                    ]
+                )
             
             print(f"[INFO] ✅ Served {len(products)} products from database (NO API CALL)")
             
@@ -763,7 +788,7 @@ Need assistance? Contact our support team!"""
             print(f"[ERROR] Failed to show categories: {str(e)}")
             await self.show_products(from_number)
     
-    async def show_products_by_category(self, from_number: str, category: str):
+    async def show_products_by_category(self, from_number: str, category: str, page: int = 1):
         """Show products filtered by category"""
         
         if not self.product_repo:
@@ -793,49 +818,71 @@ Need assistance? Contact our support team!"""
                 )
                 return
             
-            # Split products into sections (10 per section)
-            sections = []
-            section_size = 10
+            # Pagination: Show 10 products per page
+            products_per_page = 10
+            start_index = (page - 1) * products_per_page
+            end_index = start_index + products_per_page
+            page_products = category_products[start_index:end_index]
             
-            for i in range(0, len(category_products), section_size):
-                section_products = category_products[i:i + section_size]
-                section_num = (i // section_size) + 1
-                
-                section = {
-                    "title": f"{category} - Page {section_num}" if len(category_products) > section_size else f"{category} Products",
-                    "rows": []
-                }
-                
-                for product in section_products:
-                    first_variant = product.variants[0] if product.variants else None
-                    if first_variant:
-                        price_text = f"${first_variant.price:.2f}"
-                    else:
-                        price_text = "Tap to view details"
-                    
-                    section["rows"].append({
-                        "id": f"product_{product.shopify_product_id}",
-                        "title": product.title[:24],
-                        "description": price_text
-                    })
-                
-                sections.append(section)
+            if not page_products:
+                await self.whatsapp.send_message(
+                    to=from_number,
+                    message=f"No more products in '{category}' category.\n\nUse 'Back to Categories' to browse other categories."
+                )
+                return
             
+            # Create single section for this page
+            section = {
+                "title": f"{category} Products",
+                "rows": []
+            }
+            
+            for product in page_products:
+                first_variant = product.variants[0] if product.variants else None
+                if first_variant:
+                    price_text = f"${first_variant.price:.2f}"
+                else:
+                    price_text = "Tap to view details"
+                
+                section["rows"].append({
+                    "id": f"product_{product.shopify_product_id}",
+                    "title": product.title[:24],
+                    "description": price_text
+                })
+            
+            sections = [section]
+            
+            # Send the products for this page
             await self.whatsapp.send_list_message(
                 to=from_number,
-                text=f"📦 {category} Products ({len(category_products)} total):",
+                text=f"📦 {category} Products (Page {page}):\nShowing {len(page_products)} of {len(category_products)} total",
                 button_text="View Products",
                 sections=sections
             )
             
-            # Add back button
+            # Add navigation buttons
+            buttons = []
+            
+            # Check if there are more products
+            has_more = end_index < len(category_products)
+            remaining = len(category_products) - end_index
+            
+            if has_more:
+                category_safe = category.lower().replace(" ", "_")
+                buttons.append({
+                    "id": f"more_{category_safe}_{page + 1}", 
+                    "title": f"➡️ View More ({remaining} left)"
+                })
+            
+            buttons.extend([
+                {"id": "browse_products", "title": "🏪 Back to Categories"},
+                {"id": "search_products", "title": "🔍 Search Products"}
+            ])
+            
             await self.whatsapp.send_button_message(
                 to=from_number,
-                text="🔙 Want to browse other categories?",
-                buttons=[
-                    {"id": "browse_products", "title": "🏪 Back to Categories"},
-                    {"id": "search_products", "title": "🔍 Search Products"}
-                ]
+                text="🔙 Continue browsing:",
+                buttons=buttons
             )
             
             print(f"[INFO] ✅ Showed {len(category_products)} products in '{category}' category")

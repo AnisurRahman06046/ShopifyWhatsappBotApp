@@ -207,13 +207,9 @@ class ProductRepository:
         # Show newest products first, limit for performance
         query = query.order_by(Product.created_at.desc())
         
-        # Smart limit: If searching, show more results; if browsing, use provided limit
-        if search:
-            query = query.limit(min(limit, 50))  # More results for search, max 50
-        elif limit > 100:
-            query = query.limit(limit)  # Allow large limits for category analysis
-        else:
-            query = query.limit(min(limit, 20))  # Normal browsing limit
+        # Add pagination for normal browsing
+        offset = (page - 1) * limit
+        query = query.offset(offset).limit(limit)
         
         result = await self.db.execute(query)
         products = result.scalars().all()
@@ -228,8 +224,9 @@ class ProductRepository:
             for variant in product.variants:
                 print(f"[DEBUG]   - Variant {variant.title}: ${variant.price}")
         
-        # Get total count
-        count_query = select(Product).where(
+        # Get total count for pagination
+        from sqlalchemy import func
+        count_query = select(func.count(Product.id)).where(
             Product.store_id == store_id,
             Product.status == "active"
         )
@@ -237,7 +234,7 @@ class ProductRepository:
             count_query = count_query.where(Product.title.ilike(f"%{search}%"))
         
         count_result = await self.db.execute(count_query)
-        total_count = len(count_result.scalars().all())
+        total_count = count_result.scalar()
         
         return {
             "products": products,
