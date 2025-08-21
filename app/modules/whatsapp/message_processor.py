@@ -287,11 +287,12 @@ class MessageProcessor:
                     message=f"📦 Our Products:\n\n{product_list}\n\nReply with product name to view details"
                 )
             
-            
-            # Add "View More" button if there are more products
+            # Add "View More" button if there are more products - ALWAYS send this
             total_count = result.get("total_count", len(products))
             has_more = (page * 10) < total_count
             remaining = total_count - (page * 10)
+            
+            print(f"[DEBUG] Pagination check: page={page}, total_count={total_count}, has_more={has_more}, remaining={remaining}")
             
             buttons = []
             
@@ -301,6 +302,8 @@ class MessageProcessor:
             buttons.extend([
                 {"id": "browse_products", "title": "🏪 Back to Categories"}
             ])
+            
+            print(f"[DEBUG] Sending buttons: {buttons}")
             
             await self.whatsapp.send_button_message(
                 to=from_number,
