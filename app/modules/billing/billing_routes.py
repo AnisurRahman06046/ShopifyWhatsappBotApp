@@ -240,6 +240,12 @@ async def select_plan_page(
         is_recommended = plan.name == "Starter"
         is_current = plan.name == current_plan_name
         
+        # Format price properly
+        if plan.price == int(plan.price):
+            price_display = f"{int(plan.price)}"
+        else:
+            price_display = f"{plan.price:.2f}"
+        
         # Feature display mapping
         feature_display = {
             "basic_chat": "✅ WhatsApp Chat Integration",
@@ -262,7 +268,7 @@ async def select_plan_page(
                 {'<div class="recommended-badge">RECOMMENDED</div>' if is_recommended else ''}
                 <div class="plan-name">{plan.name}</div>
                 <div class="plan-price">
-                    <span class="currency">$</span>{plan.price:.0f if plan.price % 1 == 0 else plan.price}
+                    <span class="currency">$</span>{price_display}
                     <span class="period">/month</span>
                 </div>
                 {f'<div class="plan-trial">{plan.trial_days} day free trial</div>' if plan.trial_days > 0 and plan.price > 0 else ''}
