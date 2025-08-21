@@ -176,6 +176,9 @@ class MessageProcessor:
             category = item_id.replace("category_", "")
             await self.show_products_by_category(from_number, category)
         
+        elif item_id == "all_products":
+            await self.show_products(from_number, page=1)
+        
         elif item_id.startswith("cart_item_"):
             product_id = item_id.replace("cart_item_", "")
             # Get the cart item and show details
@@ -786,6 +789,13 @@ Need assistance? Contact our support team!"""
                     "description": f"{uncategorized_count} products"
                 })
             
+            # Add "All Products" option
+            total_products = len(products)
+            sections[0]["rows"].append({
+                "id": "all_products",
+                "title": "🛍️ All Products",
+                "description": f"Browse all {total_products} products"
+            })
             
             await self.whatsapp.send_list_message(
                 to=from_number,
