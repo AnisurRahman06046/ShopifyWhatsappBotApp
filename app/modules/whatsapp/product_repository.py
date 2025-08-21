@@ -204,8 +204,14 @@ class ProductRepository:
         if search:
             query = query.where(Product.title.ilike(f"%{search}%"))
         
-        # Show newest products first, no limit (show ALL products)
+        # Show newest products first, limit for performance
         query = query.order_by(Product.created_at.desc())
+        
+        # Smart limit: If searching, show more results; if browsing, limit to 20
+        if search:
+            query = query.limit(30)  # More results for search
+        else:
+            query = query.limit(20)  # Limit browsing to 20 newest products
         
         result = await self.db.execute(query)
         products = result.scalars().all()

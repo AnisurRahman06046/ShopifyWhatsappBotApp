@@ -225,34 +225,47 @@ class MessageProcessor:
                 print("[INFO] No variants found, showing products with fallback pricing")
                 # Don't fallback to API - show products without variants
             
-            # Use same single-section format as working API fallback
-            sections = [{
-                "title": "Available Products",
-                "rows": []
-            }]
+            # Split products into multiple sections (WhatsApp limit: 10 items per section)
+            sections = []
+            section_size = 10
             
-            for product in products:  # Show ALL products
-                # Get the first variant for pricing, or use fallback for products without variants
-                first_variant = product.variants[0] if product.variants else None
-                if first_variant:
-                    price_text = f"${first_variant.price:.2f}"
-                    print(f"[DEBUG] Product {product.title}: price=${first_variant.price}, variant_id={first_variant.shopify_variant_id}")
-                else:
-                    # For products without variants, show "View Details" instead of price
-                    price_text = "Tap to view details"
-                    print(f"[DEBUG] Product {product.title}: No variants - using fallback text")
+            for i in range(0, len(products), section_size):
+                section_products = products[i:i + section_size]
+                section_num = (i // section_size) + 1
                 
-                sections[0]["rows"].append({
-                    "id": f"product_{product.shopify_product_id}",
-                    "title": product.title[:24],  # WhatsApp limit
-                    "description": price_text
-                })
+                section = {
+                    "title": f"Products Page {section_num}" if len(products) > section_size else "Available Products",
+                    "rows": []
+                }
+                
+                for product in section_products:
+                    # Get the first variant for pricing, or use fallback for products without variants
+                    first_variant = product.variants[0] if product.variants else None
+                    if first_variant:
+                        price_text = f"${first_variant.price:.2f}"
+                        print(f"[DEBUG] Product {product.title}: price=${first_variant.price}, variant_id={first_variant.shopify_variant_id}")
+                    else:
+                        # For products without variants, show "View Details" instead of price
+                        price_text = "Tap to view details"
+                        print(f"[DEBUG] Product {product.title}: No variants - using fallback text")
+                    
+                    section["rows"].append({
+                        "id": f"product_{product.shopify_product_id}",
+                        "title": product.title[:24],  # WhatsApp limit
+                        "description": price_text
+                    })
+                
+                sections.append(section)
             
-            # Simple product listing - newest first
-            nav_text = f"📦 All our products ({len(products)} total, newest first):"
+            # Smart product listing
+            if len(products) == 20:
+                nav_text = f"📦 Latest 20 products (newest first):\n💡 Use 'search [keyword]' to find specific items"
+            else:
+                nav_text = f"📦 All our products ({len(products)} total, newest first):"
             
             print(f"[DEBUG] Attempting to send list message with {len(sections)} sections")
             print(f"[DEBUG] Section details: {[(s['title'], len(s['rows'])) for s in sections]}")
+            print(f"[DEBUG] Total products being sent: {sum(len(s['rows']) for s in sections)}")
             
             try:
                 await self.whatsapp.send_list_message(
