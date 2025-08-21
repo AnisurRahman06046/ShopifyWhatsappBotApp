@@ -214,14 +214,17 @@ class MessageProcessor:
             return await self._show_products_fallback(from_number, products)
         
         try:
-            # Get ALL products from database (newest first)
+            print(f"[DEBUG] show_products called: page={page}, store_id={self.store.id}")
+            
+            # Get products from database with pagination
             result = await self.product_repo.get_products_for_browsing(
                 store_id=self.store.id, 
-                page=1, 
-                limit=50  # Show up to 50 products
+                page=page, 
+                limit=10  # Show 10 products per page
             )
             
             products = result["products"]
+            print(f"[DEBUG] Retrieved {len(products)} products for page {page}")
             
             if not products:
                 await self.whatsapp.send_message(
@@ -271,11 +274,9 @@ class MessageProcessor:
                 
                 sections.append(section)
             
-            # Smart product listing
-            if len(products) == 20:
-                nav_text = f"📦 Latest 20 products (newest first):\n💡 Use 'search [keyword]' to find specific items"
-            else:
-                nav_text = f"📦 All our products ({len(products)} total, newest first):"
+            # Smart product listing with pagination info
+            total_count = result.get("total_count", 0)
+            nav_text = f"📦 All Products (Page {page}):\nShowing {len(products)} of {total_count} total"
             
             print(f"[DEBUG] Attempting to send list message with {len(sections)} sections")
             print(f"[DEBUG] Section details: {[(s['title'], len(s['rows'])) for s in sections]}")
@@ -302,24 +303,47 @@ class MessageProcessor:
             # Add "View More" button if there are more products
             total_count = result.get("total_count", len(products))
             has_more = (page * 10) < total_count
+            remaining = total_count - (page * 10)
+            
+            buttons = []
             
             if has_more:
-                await self.whatsapp.send_button_message(
-                    to=from_number,
-                    text=f"📄 Showing {len(products)} of {total_count} products (Page {page})",
-                    buttons=[
-                        {"id": f"more_all_{page + 1}", "title": f"➡️ View More ({total_count - (page * 10)} left)"},
-                        {"id": "browse_products", "title": "🏪 Back to Categories"}
-                    ]
-                )
+                buttons.append({"id": f"more_all_{page + 1}", "title": f"➡️ View More ({remaining} left)"})
+            
+            buttons.extend([
+                {"id": "browse_products", "title": "🏪 Back to Categories"},
+                {"id": "search_products", "title": "🔍 Search Products"}
+            ])
+            
+            await self.whatsapp.send_button_message(
+                to=from_number,
+                text="🔙 Continue browsing:",
+                buttons=buttons
+            )
             
             print(f"[INFO] ✅ Served {len(products)} products from database (NO API CALL)")
             
         except Exception as e:
             print(f"[ERROR] Failed to get products from database: {str(e)}")
+            import traceback
+            print(f"[ERROR] Full traceback: {traceback.format_exc()}")
+            
+            # Send error message to user
+            await self.whatsapp.send_message(
+                to=from_number,
+                message="Sorry, there was an error loading products. Please try again later."
+            )
+            
             # Fallback to Shopify API
-            products = await self.shopify.get_products(limit=10)
-            await self._show_products_fallback(from_number, products)
+            try:
+                products = await self.shopify.get_products(limit=10)
+                await self._show_products_fallback(from_number, products)
+            except Exception as fallback_error:
+                print(f"[ERROR] Fallback also failed: {str(fallback_error)}")
+                await self.whatsapp.send_message(
+                    to=from_number,
+                    message="Product browsing is temporarily unavailable. Please contact support."
+                )
     
     async def _show_products_fallback(self, from_number: str, products: list):
         """Fallback method using Shopify API"""
