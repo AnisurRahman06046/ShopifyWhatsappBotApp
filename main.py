@@ -1,12 +1,32 @@
 # main.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from app.modules.botConfig.bot_routes import router as bot_router
 from fastapi.staticfiles import StaticFiles
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(
     title="WhatsApp Shopify Bot",
     description="A WhatsApp bot for Shopify stores",
     version="1.0.0"
+)
+
+# Add rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://admin.shopify.com", "https://*.myshopify.com"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
 )
 
 # Serve static HTML files
@@ -23,6 +43,156 @@ from app.modules.billing.billing_routes import router as billing_router
 app.include_router(shopify_router)
 app.include_router(whatsapp_router)
 app.include_router(billing_router)
+
+@app.get("/shopify/privacy")
+async def privacy_policy():
+    """Serve privacy policy"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    file_path = "PRIVACY_POLICY.md"
+    if os.path.exists(file_path):
+        # Convert markdown to HTML for better display
+        with open(file_path, 'r') as f:
+            content = f.read()
+        
+        # Simple markdown to HTML conversion
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Privacy Policy - WhatsApp Shopping Bot</title>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 40px auto; padding: 20px; }}
+                h1 {{ color: #2c3e50; border-bottom: 3px solid #25D366; padding-bottom: 10px; }}
+                h2 {{ color: #34495e; margin-top: 30px; }}
+                h3 {{ color: #7f8c8d; }}
+                pre {{ background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }}
+                code {{ background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }}
+            </style>
+        </head>
+        <body>
+            <pre>{content}</pre>
+        </body>
+        </html>
+        """
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=html_content)
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Privacy policy not found")
+
+@app.get("/shopify/terms")
+async def terms_of_service():
+    """Serve terms of service"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    file_path = "TERMS_OF_SERVICE.md"
+    if os.path.exists(file_path):
+        # Convert markdown to HTML for better display
+        with open(file_path, 'r') as f:
+            content = f.read()
+        
+        # Simple markdown to HTML conversion
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Terms of Service - WhatsApp Shopping Bot</title>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 40px auto; padding: 20px; }}
+                h1 {{ color: #2c3e50; border-bottom: 3px solid #25D366; padding-bottom: 10px; }}
+                h2 {{ color: #34495e; margin-top: 30px; }}
+                h3 {{ color: #7f8c8d; }}
+                pre {{ background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }}
+                code {{ background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }}
+            </style>
+        </head>
+        <body>
+            <pre>{content}</pre>
+        </body>
+        </html>
+        """
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=html_content)
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Terms of service not found")
+
+@app.get("/shopify/support")
+async def support():
+    """Support page"""
+    from fastapi.responses import HTMLResponse
+    
+    support_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Support - WhatsApp Shopping Bot</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 900px; margin: 40px auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+            .container { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+            h1 { color: #2c3e50; border-bottom: 3px solid #25D366; padding-bottom: 10px; }
+            h2 { color: #34495e; margin-top: 30px; }
+            .contact-box { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; }
+            .btn { display: inline-block; padding: 12px 24px; background: #25D366; color: white; text-decoration: none; border-radius: 5px; margin: 10px 10px 10px 0; }
+            .btn:hover { background: #128C7E; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🤝 Support Center</h1>
+            
+            <h2>📚 Documentation</h2>
+            <p>Find answers to common questions and detailed guides in our documentation.</p>
+            <a href="/static/DOCUMENTATION.md" class="btn">View Documentation</a>
+            
+            <h2>📧 Contact Support</h2>
+            <div class="contact-box">
+                <p><strong>Email:</strong> support@ecommercexpart.com</p>
+                <p><strong>Response Time:</strong> Within 24 hours (business days)</p>
+                <p><strong>Priority Support:</strong> Available for Professional and Enterprise plans</p>
+            </div>
+            
+            <h2>🐛 Report an Issue</h2>
+            <p>Found a bug or have a feature request? Let us know!</p>
+            <a href="mailto:support@ecommercexpart.com?subject=Bug Report" class="btn">Report Issue</a>
+            
+            <h2>💬 Community</h2>
+            <p>Join our community to connect with other merchants using WhatsApp Shopping Bot.</p>
+            
+            <h2>🚀 Getting Started</h2>
+            <ul>
+                <li>Install the app from Shopify App Store</li>
+                <li>Connect your WhatsApp Business Account</li>
+                <li>Configure your welcome message</li>
+                <li>Start receiving orders through WhatsApp!</li>
+            </ul>
+            
+            <h2>❓ Frequently Asked Questions</h2>
+            <details>
+                <summary><strong>How do I connect my WhatsApp Business Account?</strong></summary>
+                <p>Go to the app settings, click "Connect WhatsApp" and follow the guided setup process.</p>
+            </details>
+            <details>
+                <summary><strong>What are the message limits?</strong></summary>
+                <p>Limits depend on your plan: Free (100/month), Starter (1,000/month), Professional (5,000/month), Enterprise (50,000/month)</p>
+            </details>
+            <details>
+                <summary><strong>Can I customize the bot messages?</strong></summary>
+                <p>Yes! You can customize welcome messages and automated responses in the app settings.</p>
+            </details>
+            <details>
+                <summary><strong>Is customer data secure?</strong></summary>
+                <p>Yes, we use industry-standard encryption and follow Shopify's security guidelines.</p>
+            </details>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return HTMLResponse(content=support_html)
 
 @app.get("/")
 async def root():

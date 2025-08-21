@@ -2,7 +2,7 @@
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration
 
 name = "WhatsApp Shopping Bot"
-client_id = "your_client_id_here"
+client_id = "{{ SHOPIFY_API_KEY }}"
 application_url = "https://sc.ecommercexpart.com"
 embedded = true
 
@@ -31,7 +31,7 @@ embedded = false
 
 [build]
 automatically_update_urls_on_dev = true
-dev_store_url = "testratultoto.myshopify.com"
+# dev_store_url = "testratultoto.myshopify.com" # Removed for production
 include_config_on_deploy = true
 
 # Extension points

@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Request, HTTPException, Query, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_async_db
+from app.core.config import settings
 from .whatsapp_repository import WhatsAppRepository, ShopifyStoreRepository
 from .whatsapp_service import WhatsAppService, ShopifyService
 from .message_processor import MessageProcessor
 import json
 import logging
+import hmac
+import hashlib
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 logger = logging.getLogger(__name__)
@@ -34,6 +37,9 @@ async def receive_message(request: Request, db: AsyncSession = Depends(get_async
     """Handle incoming WhatsApp messages"""
     
     try:
+        # Verify webhook signature for security
+        await verify_webhook_signature(request)
+        
         data = await request.json()
         
         # Extract message details
@@ -135,3 +141,37 @@ async def handle_messages(value: dict, db: AsyncSession):
             phone_number=from_number,
             message_type=message_type
         )
+
+
+async def verify_webhook_signature(request: Request):
+    """Verify webhook signature for security"""
+    
+    # Get the raw body
+    body = await request.body()
+    
+    # Get signature from headers
+    signature = request.headers.get("X-Hub-Signature-256") or request.headers.get("X-Signature")
+    
+    if not signature:
+        logger.warning("Webhook received without signature")
+        return  # In development, allow unsigned webhooks
+    
+    # Verify signature if webhook secret is configured
+    if settings.WEBHOOK_SECRET:
+        # Create expected signature
+        expected_signature = hmac.new(
+            settings.WEBHOOK_SECRET.encode('utf-8'),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Remove 'sha256=' prefix if present
+        if signature.startswith('sha256='):
+            signature = signature[7:]
+        
+        # Compare signatures
+        if not hmac.compare_digest(expected_signature, signature):
+            logger.error("Invalid webhook signature")
+            raise HTTPException(status_code=401, detail="Invalid signature")
+    
+    logger.debug("Webhook signature verified")
