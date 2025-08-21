@@ -204,9 +204,8 @@ class ProductRepository:
         if search:
             query = query.where(Product.title.ilike(f"%{search}%"))
         
-        # Add pagination
-        offset = (page - 1) * limit
-        query = query.offset(offset).limit(limit)
+        # Show newest products first, no limit (show ALL products)
+        query = query.order_by(Product.created_at.desc())
         
         result = await self.db.execute(query)
         products = result.scalars().all()

@@ -29,6 +29,17 @@ class MessageProcessor:
         elif "checkout" in text:
             await self.start_checkout(from_number, session)
         
+        # Handle search
+        elif text.startswith("search "):
+            search_term = text.replace("search ", "").strip()
+            if search_term:
+                await self.search_products(from_number, search_term)
+            else:
+                await self.whatsapp.send_message(
+                    to=from_number,
+                    message="🔍 Please specify what to search for.\n\nExample: 'search shoes'"
+                )
+        
         # Handle help
         elif "help" in text or "?" in text:
             await self.send_help_message(from_number)
@@ -142,6 +153,16 @@ class MessageProcessor:
         elif button_id == "clear_cart":
             await self.clear_cart(from_number, session)
         
+        elif button_id.startswith("products_page_"):
+            page = int(button_id.replace("products_page_", ""))
+            await self.show_products(from_number, page)
+        
+        elif button_id == "search_products":
+            await self.whatsapp.send_message(
+                to=from_number,
+                message="🔍 What are you looking for?\n\nType 'search [product name]' to find specific products.\n\nExample: 'search shoes' or 'search iPhone'"
+            )
+        
         else:
             await self.send_main_menu(from_number)
 
@@ -170,7 +191,7 @@ class MessageProcessor:
                     message="Item not found in cart."
                 )
 
-    async def show_products(self, from_number: str, page: int = 1):
+    async def show_products(self, from_number: str, page: int = 1, category: str = None):
         """Display product catalog from database (NO API CALLS!)"""
         
         if not self.product_repo:
@@ -179,11 +200,11 @@ class MessageProcessor:
             return await self._show_products_fallback(from_number, products)
         
         try:
-            # Get ALL products from database instead of Shopify API (no pagination)
+            # Get ALL products from database (newest first)
             result = await self.product_repo.get_products_for_browsing(
                 store_id=self.store.id, 
                 page=1, 
-                limit=100  # Show all products at once
+                limit=50  # Show up to 50 products
             )
             
             products = result["products"]
@@ -210,7 +231,7 @@ class MessageProcessor:
                 "rows": []
             }]
             
-            for product in products[:10]:  # Limit to 10 products like API fallback
+            for product in products:  # Show ALL products
                 # Get the first variant for pricing, or use fallback for products without variants
                 first_variant = product.variants[0] if product.variants else None
                 if first_variant:
@@ -227,8 +248,8 @@ class MessageProcessor:
                     "description": price_text
                 })
             
-            # Simple product listing without pagination
-            nav_text = f"📦 Here are our available products:"
+            # Simple product listing - newest first
+            nav_text = f"📦 All our products ({len(products)} total, newest first):"
             
             print(f"[DEBUG] Attempting to send list message with {len(sections)} sections")
             print(f"[DEBUG] Section details: {[(s['title'], len(s['rows'])) for s in sections]}")
@@ -249,6 +270,7 @@ class MessageProcessor:
                     to=from_number,
                     message=f"📦 Our Products:\n\n{product_list}\n\nReply with product name to view details"
                 )
+            
             
             print(f"[INFO] ✅ Served {len(products)} products from database (NO API CALL)")
             
