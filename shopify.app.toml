@@ -5,6 +5,7 @@ name = "WhatsApp Shopping Bot"
 client_id = "{{ SHOPIFY_API_KEY }}"
 application_url = "https://sc.ecommercexpart.com"
 embedded = true
+handle = "easy-social-commerce"
 
 [access_scopes]
 # Required scopes for WhatsApp Shopping Bot
