@@ -371,25 +371,9 @@ async def shopify_callback(
     # Register webhooks for app lifecycle events
     await register_webhooks(shop, access_token)
     
-    # For Shopify automated tests, immediately redirect to app UI after authentication
-    # Check if this is a test environment (Shopify automated testing)
-    user_agent = request.headers.get("User-Agent", "").lower()
-    is_shopify_test = "shopify" in user_agent or "test" in user_agent
-    
-    if is_shopify_test:
-        # Immediate redirect to app UI for Shopify tests
-        return RedirectResponse(url=f"/shopify/admin?shop={shop}")
-    
-    # For regular users, check billing subscription
-    from app.modules.billing.billing_service import BillingService
-    billing_service = BillingService(db)
-    subscription = await billing_service.get_store_subscription(current_store.id)
-    
-    # If no active subscription, redirect to billing page, otherwise to setup
-    if not subscription or subscription.status != "active":
-        return RedirectResponse(url=f"/billing/select-plan?shop={shop}")
-    else:
-        return RedirectResponse(url=f"/shopify/admin?shop={shop}")
+    # Shopify expects immediate redirect to app UI after authentication
+    # Always redirect to admin dashboard for Shopify compliance
+    return RedirectResponse(url=f"/shopify/admin?shop={shop}")
 
 
 @router.get("/setup")
@@ -879,7 +863,7 @@ async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async
         signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
         
         # Always verify webhook signature if secret is configured
-        if settings.SHOPIFY_WEBHOOK_SECRET:
+        if settings.SHOPIFY_API_SECRET:
             if not verify_webhook_signature(body, signature):
                 print(f"[ERROR] Webhook signature verification failed")
                 print(f"[DEBUG] Expected signature pattern, got: {signature[:20] if signature else 'None'}...")
@@ -891,11 +875,11 @@ async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async
                 else:
                     print("[WARNING] Continuing despite signature mismatch (development mode)")
         else:
-            print("[WARNING] SHOPIFY_WEBHOOK_SECRET not configured - webhook verification disabled")
+            print("[WARNING] SHOPIFY_API_SECRET not configured - webhook verification disabled")
             # In production, we should require webhook secret
             if settings.ENVIRONMENT == "production":
-                print("[ERROR] Webhook secret required in production")
-                raise HTTPException(status_code=500, detail="Webhook secret not configured")
+                print("[ERROR] API secret required in production")
+                raise HTTPException(status_code=401, detail="Webhook secret not configured")
         
         # Parse webhook data
         webhook_data = json.loads(body_str)
@@ -972,8 +956,8 @@ async def customer_data_request(request: Request, db: AsyncSession = Depends(get
         
         # Verify webhook signature
         signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
-        if not settings.SHOPIFY_WEBHOOK_SECRET:
-            print("[WARNING] SHOPIFY_WEBHOOK_SECRET not configured for GDPR webhook")
+        if not settings.SHOPIFY_API_SECRET:
+            print("[WARNING] SHOPIFY_API_SECRET not configured for GDPR webhook")
             raise HTTPException(status_code=401, detail="Webhook verification not configured")
         
         if not verify_webhook_signature(body, signature):
@@ -1032,8 +1016,8 @@ async def customer_data_redact(request: Request, db: AsyncSession = Depends(get_
         
         # Verify webhook signature
         signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
-        if not settings.SHOPIFY_WEBHOOK_SECRET:
-            print("[WARNING] SHOPIFY_WEBHOOK_SECRET not configured for GDPR webhook")
+        if not settings.SHOPIFY_API_SECRET:
+            print("[WARNING] SHOPIFY_API_SECRET not configured for GDPR webhook")
             raise HTTPException(status_code=401, detail="Webhook verification not configured")
         
         if not verify_webhook_signature(body, signature):
@@ -1080,8 +1064,8 @@ async def shop_data_redact(request: Request, db: AsyncSession = Depends(get_asyn
         
         # Verify webhook signature  
         signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
-        if not settings.SHOPIFY_WEBHOOK_SECRET:
-            print("[WARNING] SHOPIFY_WEBHOOK_SECRET not configured for GDPR webhook")
+        if not settings.SHOPIFY_API_SECRET:
+            print("[WARNING] SHOPIFY_API_SECRET not configured for GDPR webhook")
             raise HTTPException(status_code=401, detail="Webhook verification not configured")
         
         if not verify_webhook_signature(body, signature):
@@ -1224,14 +1208,14 @@ def verify_webhook_signature(body: bytes, signature: str) -> bool:
         print("[WARNING] No webhook signature provided")
         return False
     
-    if not settings.SHOPIFY_WEBHOOK_SECRET:
-        print("[WARNING] SHOPIFY_WEBHOOK_SECRET not configured")
+    if not settings.SHOPIFY_API_SECRET:
+        print("[WARNING] SHOPIFY_API_SECRET not configured")
         return False
     
     try:
         # Shopify sends the signature as base64-encoded HMAC-SHA256
         calculated_hmac = hmac.new(
-            settings.SHOPIFY_WEBHOOK_SECRET.encode('utf-8'),
+            settings.SHOPIFY_API_SECRET.encode('utf-8'),
             body,
             hashlib.sha256
         )
@@ -1249,7 +1233,7 @@ def verify_webhook_signature(body: bytes, signature: str) -> bool:
             print(f"[DEBUG] Signature verification failed")
             print(f"[DEBUG] Expected: {expected_signature[:30]}...")
             print(f"[DEBUG] Received: {signature[:30]}...")
-            print(f"[DEBUG] Secret exists: {bool(settings.SHOPIFY_WEBHOOK_SECRET)}")
+            print(f"[DEBUG] Secret exists: {bool(settings.SHOPIFY_API_SECRET)}")
             print(f"[DEBUG] Body length: {len(body)} bytes")
             print(f"[DEBUG] Body preview: {body.decode('utf-8', errors='ignore')[:100]}...")
         else:
