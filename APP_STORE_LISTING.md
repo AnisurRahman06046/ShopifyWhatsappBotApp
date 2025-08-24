@@ -1,14 +1,17 @@
 # WhatsApp Shopping Bot - Shopify App Store Listing
 
 ## App Title
+
 WhatsApp Shopping Bot - Customer Chat & Sales
 
 ## Tagline
+
 Transform customer service with AI-powered WhatsApp shopping experiences
 
-## Description
+## Descriptions
 
 ### Short Description (160 chars)
+
 Enable WhatsApp shopping for your store. Customers browse products, manage cart, and checkout directly through WhatsApp conversations.
 
 ### Long Description
@@ -68,15 +71,19 @@ WhatsApp Shopping Bot seamlessly integrates your Shopify store with WhatsApp Bus
 Start converting WhatsApp conversations into sales today!
 
 ## Keywords
+
 whatsapp, chat commerce, customer service, automation, conversational commerce, messaging, sales bot, customer engagement, mobile commerce, international sales
 
 ## Category
+
 Customer service
 
 ## Pricing
+
 Freemium with subscription tiers
 
 ## Screenshots Needed
+
 1. WhatsApp conversation showing product browsing
 2. Category selection interface
 3. Product details with cart options
@@ -87,12 +94,14 @@ Freemium with subscription tiers
 8. Mobile-friendly customer journey
 
 ## App Store Assets
+
 - App icon (512x512px)
 - Feature graphics
 - Screenshots (various sizes)
 - Video demo (optional but recommended)
 
 ## Support Information
+
 - Support email: support@ecommercexpart.com
 - Support URL: https://sc.ecommercexpart.com/support
 - Documentation: https://sc.ecommercexpart.com/docs
