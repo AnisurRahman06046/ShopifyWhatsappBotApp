@@ -8,7 +8,7 @@ WhatsApp Shopping Bot - Customer Chat & Sales
 
 Transform customer service with AI-powered WhatsApp shopping experiences
 
-## Descriptions
+## Descriptionsss
 
 ### Short Description (160 chars)
 
