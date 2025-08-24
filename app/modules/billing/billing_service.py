@@ -422,14 +422,60 @@ class BillingService:
             subscription = result.scalar_one_or_none()
             
             if not subscription:
-                # No active subscription - use free tier limits
-                return {
-                    "has_subscription": False,
-                    "limit_reached": True,
-                    "messages_used": 0,
-                    "messages_limit": 0,
-                    "messages_remaining": 0
-                }
+                # No active subscription - create a free tier subscription automatically
+                logger.info(f"No subscription found for store {store_id}, creating free tier subscription")
+                
+                # Get or create the free plan
+                free_plan_result = await self.db.execute(
+                    select(BillingPlan).where(BillingPlan.name == "Free")
+                )
+                free_plan = free_plan_result.scalar_one_or_none()
+                
+                if not free_plan:
+                    # Create free plan if it doesn't exist
+                    free_plan = BillingPlan(
+                        name="Free",
+                        price=0.00,
+                        interval="EVERY_30_DAYS",
+                        trial_days=0,
+                        messages_limit=1000,  # Generous free tier for testing
+                        stores_limit=1,
+                        features=json.dumps({
+                            "basic_chat": True,
+                            "product_browsing": True,
+                            "cart_management": True,
+                            "checkout": True,
+                            "support": "community"
+                        }),
+                        test=False,
+                        terms="Free plan - 1000 messages per month"
+                    )
+                    self.db.add(free_plan)
+                    await self.db.flush()
+                
+                # Create free subscription for the store
+                subscription = StoreSubscription(
+                    store_id=store_id,
+                    plan_id=free_plan.id,
+                    status="active",
+                    trial_ends_at=None,
+                    messages_used=0,
+                    messages_reset_at=datetime.utcnow(),
+                    shopify_charge_id=None
+                )
+                self.db.add(subscription)
+                await self.db.commit()
+                
+                # Reload with plan relationship
+                await self.db.refresh(subscription)
+                result = await self.db.execute(
+                    select(StoreSubscription).where(
+                        StoreSubscription.id == subscription.id
+                    ).options(
+                        selectinload(StoreSubscription.plan)
+                    )
+                )
+                subscription = result.scalar_one()
             
             # Check if we need to reset the counter (monthly reset)
             if subscription.messages_reset_at < datetime.utcnow() - timedelta(days=30):

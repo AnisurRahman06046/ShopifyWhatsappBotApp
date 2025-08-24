@@ -91,12 +91,15 @@ async def handle_messages(value: dict, db: AsyncSession):
     billing_service = BillingService(db)
     usage_check = await billing_service.check_usage_limit(store.id)
     
-    if usage_check.get("limit_reached", True):
+    if usage_check.get("limit_reached", False):  # Changed default to False
         # Send message about limit reached
         logger.warning(f"Message limit reached for store {store.store_url}")
+        logger.warning(f"Usage details: {usage_check}")
         # Optionally send a message to the user about the limit
         # For now, just return to avoid processing
         return
+    
+    logger.info(f"Processing message for store {store.store_url} - Usage: {usage_check.get('messages_used', 0)}/{usage_check.get('messages_limit', 0)}")
     
     # Initialize services
     whatsapp_service = WhatsAppService(store)
@@ -134,13 +137,16 @@ async def handle_messages(value: dict, db: AsyncSession):
             await processor.process_button_response(from_number, button, session)
         
         # Record usage for billing
-        await billing_service.record_usage(
-            store_id=store.id,
-            record_type="message_sent",
-            quantity=1,
-            phone_number=from_number,
-            message_type=message_type
-        )
+        try:
+            await billing_service.record_usage(
+                store_id=store.id,
+                record_type="message_sent",
+                quantity=1,
+                phone_number=from_number,
+                message_type=message_type
+            )
+        except Exception as e:
+            logger.error(f"Error recording usage: {str(e)}")
 
 
 async def verify_webhook_signature(request: Request):
