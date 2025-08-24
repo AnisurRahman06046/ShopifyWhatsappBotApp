@@ -44,8 +44,15 @@ app.include_router(shopify_router)
 app.include_router(whatsapp_router)
 app.include_router(billing_router)
 
-@app.get("/shopify/privacy")
+@app.get("/privacy")
 async def privacy_policy():
+    """Serve privacy policy for Shopify Partner requirements"""
+    # Redirect to the actual privacy policy route
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/shopify/privacy")
+
+@app.get("/shopify/privacy")
+async def privacy_policy_full():
     """Serve privacy policy"""
     from fastapi.responses import FileResponse
     import os
@@ -82,8 +89,15 @@ async def privacy_policy():
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Privacy policy not found")
 
-@app.get("/shopify/terms")
+@app.get("/terms")
 async def terms_of_service():
+    """Serve terms of service for Shopify Partner requirements"""
+    # Redirect to the actual terms route
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/shopify/terms")
+
+@app.get("/shopify/terms")
+async def terms_of_service_full():
     """Serve terms of service"""
     from fastapi.responses import FileResponse
     import os
@@ -120,8 +134,15 @@ async def terms_of_service():
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Terms of service not found")
 
-@app.get("/shopify/support")
+@app.get("/support")
 async def support():
+    """Support page for Shopify Partner requirements"""
+    # Redirect to the actual support route
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/shopify/support")
+
+@app.get("/shopify/support")
+async def support_full():
     """Support page"""
     from fastapi.responses import HTMLResponse
     
