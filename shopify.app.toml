@@ -20,6 +20,22 @@ redirect_urls = [
 [webhooks]
 api_version = "2024-01"
 
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/shopify/webhooks/app/uninstalled"
+
+[[webhooks.subscriptions]]
+topics = ["customers/data_request"]
+uri = "/gdpr/customers/data_request"
+
+[[webhooks.subscriptions]]
+topics = ["customers/redact"]
+uri = "/gdpr/customers/redact"
+
+[[webhooks.subscriptions]]
+topics = ["shop/redact"]  
+uri = "/gdpr/shop/redact"
+
 # App Proxy for frontend integration (optional)
 [app_proxy]
 url = "https://sc.ecommercexpart.com/proxy"
