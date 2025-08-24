@@ -1,7 +1,7 @@
 # Shopify App Configuration
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration
 
-name = "WhatsApp Shopping Bot"
+name = "Social Commerce"
 client_id = "{{ SHOPIFY_API_KEY }}"
 application_url = "https://sc.ecommercexpart.com"
 embedded = true
