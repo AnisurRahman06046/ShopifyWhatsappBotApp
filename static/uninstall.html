@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uninstall WhatsApp Shopping Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .emoji {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+        
+        p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+            text-align: left;
+        }
+        
+        .warning-box h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .warning-box ul {
+            color: #856404;
+            margin-left: 20px;
+        }
+        
+        .warning-box li {
+            margin-bottom: 8px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        .button {
+            padding: 14px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            border: none;
+        }
+        
+        .button-cancel {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .button-cancel:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+        
+        .button-uninstall {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .button-uninstall:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 30px 0;
+            text-align: left;
+        }
+        
+        .info-box h3 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        
+        .info-box p {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .emoji-animated {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="emoji emoji-animated">😢</div>
+        <h1>We're Sorry to See You Go!</h1>
+        <p>Are you sure you want to uninstall WhatsApp Shopping Bot from your store?</p>
+        
+        <div class="warning-box">
+            <h3>⚠️ What will happen when you uninstall:</h3>
+            <ul>
+                <li>Your WhatsApp bot will stop responding to customer messages</li>
+                <li>All WhatsApp configuration settings will be removed</li>
+                <li>Shopping cart sessions will be cleared</li>
+                <li>Access to the app dashboard will be revoked</li>
+            </ul>
+        </div>
+        
+        <div class="info-box">
+            <h3>💡 Having issues? We can help!</h3>
+            <p>If you're experiencing problems with the app, our support team is here to help.</p>
+            <p><strong>Email:</strong> support@ecommercexpart.com</p>
+            <p><strong>Response time:</strong> Within 24 hours</p>
+        </div>
+        
+        <div class="button-group">
+            <button class="button button-cancel" onclick="goBack()">
+                ← Keep the App
+            </button>
+            <button class="button button-uninstall" onclick="confirmUninstall()">
+                Uninstall App
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        function goBack() {
+            // Go back to the previous page or close the modal
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                // If opened in iframe/modal, try to close it
+                if (window.parent !== window) {
+                    window.parent.postMessage('close-uninstall', '*');
+                } else {
+                    window.close();
+                }
+            }
+        }
+        
+        function confirmUninstall() {
+            if (confirm('Are you absolutely sure? This action cannot be undone.')) {
+                // Shopify will handle the actual uninstallation
+                // This is just a confirmation page
+                alert('To complete uninstallation, please use the Shopify admin panel.');
+                goBack();
+            }
+        }
+    </script>
+</body>
+</html>

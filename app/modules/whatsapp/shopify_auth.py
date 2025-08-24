@@ -77,6 +77,213 @@ async def configure_whatsapp(
     }
 
 
+@router.get("/embedded")
+async def embedded_app_page(shop: str = Query(...), host: str = Query(None), db: AsyncSession = Depends(get_async_db)):
+    """Embedded app page for Shopify admin iframe"""
+    
+    repo = ShopifyStoreRepository(db)
+    store = await repo.get_store_by_url(shop)
+    
+    if not store:
+        # If store not found, redirect to installation
+        return RedirectResponse(url=f"/shopify/install?shop={shop}")
+    
+    configured = all([
+        store.whatsapp_token,
+        store.whatsapp_phone_number_id,
+        store.whatsapp_verify_token
+    ])
+    
+    # Embedded app HTML with proper Shopify App Bridge
+    return HTMLResponse(content=f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>WhatsApp Shopping Bot</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge/3.7.8/app-bridge.js"></script>
+        <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{ 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #f4f6f8;
+                padding: 20px;
+            }}
+            .container {{
+                max-width: 1200px;
+                margin: 0 auto;
+            }}
+            .header {{
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                margin-bottom: 30px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }}
+            .status-badge {{
+                display: inline-block;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 14px;
+                font-weight: 600;
+                margin-left: 15px;
+            }}
+            .status-active {{
+                background: #d4edda;
+                color: #155724;
+            }}
+            .status-inactive {{
+                background: #f8d7da;
+                color: #721c24;
+            }}
+            .grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 20px;
+                margin-bottom: 30px;
+            }}
+            .card {{
+                background: white;
+                border-radius: 12px;
+                padding: 25px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }}
+            .card h3 {{
+                color: #202223;
+                margin-bottom: 15px;
+                font-size: 18px;
+            }}
+            .button {{
+                display: inline-block;
+                padding: 12px 24px;
+                background: #25D366;
+                color: white;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: 600;
+                margin-top: 15px;
+                margin-right: 10px;
+                transition: background 0.3s;
+            }}
+            .button:hover {{
+                background: #128C7E;
+            }}
+            .button-secondary {{
+                background: #6c757d;
+            }}
+            .button-secondary:hover {{
+                background: #5a6268;
+            }}
+            .metric {{
+                margin: 15px 0;
+            }}
+            .metric-value {{
+                font-size: 28px;
+                font-weight: bold;
+                color: #202223;
+            }}
+            .metric-label {{
+                color: #637381;
+                font-size: 14px;
+                margin-top: 5px;
+            }}
+            .setup-steps {{
+                background: #f0f8ff;
+                border-left: 4px solid #25D366;
+                padding: 20px;
+                border-radius: 8px;
+                margin-top: 20px;
+            }}
+            .setup-steps h4 {{
+                color: #202223;
+                margin-bottom: 15px;
+            }}
+            .setup-steps ol {{
+                padding-left: 20px;
+                color: #637381;
+            }}
+            .setup-steps li {{
+                margin-bottom: 10px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1 style="color: #202223; font-size: 28px; display: inline-block;">
+                    📱 WhatsApp Shopping Bot
+                </h1>
+                <span class="status-badge {'status-active' if configured else 'status-inactive'}">
+                    {'✅ Configured' if configured else '⚠️ Setup Required'}
+                </span>
+                <p style="color: #637381; margin-top: 10px;">
+                    Enable customers to shop directly through WhatsApp conversations
+                </p>
+            </div>
+            
+            <div class="grid">
+                <div class="card">
+                    <h3>⚙️ Configuration</h3>
+                    <p style="color: #637381; margin-bottom: 15px;">
+                        {'Your WhatsApp bot is ready to receive messages!' if configured else 'Complete the setup to activate your WhatsApp bot'}
+                    </p>
+                    <div style="margin: 20px 0;">
+                        <strong>WhatsApp Status:</strong> 
+                        <span class="status-badge {'status-active' if store.whatsapp_enabled else 'status-inactive'}" style="margin-left: 10px;">
+                            {'Active' if store.whatsapp_enabled else 'Inactive'}
+                        </span>
+                    </div>
+                    <a href="/shopify/setup?shop={shop}" class="button" target="_top">
+                        {'⚙️ Update Settings' if configured else '🚀 Complete Setup'}
+                    </a>
+                </div>
+                
+                <div class="card">
+                    <h3>📊 Quick Stats</h3>
+                    <div class="metric">
+                        <div class="metric-value">0</div>
+                        <div class="metric-label">Active Conversations</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">0</div>
+                        <div class="metric-label">Orders Today</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>🚀 Quick Actions</h3>
+                    <p style="color: #637381; margin-bottom: 15px;">Manage your WhatsApp bot</p>
+                    <a href="#" onclick="testBot(); return false;" class="button">🧪 Test Bot</a>
+                    <a href="/shopify/support" class="button button-secondary" target="_blank">📚 Help</a>
+                </div>
+            </div>
+            
+            {'<div class="card"><h3>✅ Your WhatsApp Bot is Active!</h3><div class="setup-steps"><h4>Share your WhatsApp number with customers:</h4><p><strong>WhatsApp Number:</strong> ' + (store.whatsapp_phone_number_id or 'Not configured') + '</p><p style="margin-top: 15px;">Customers can start shopping by sending any message to your WhatsApp Business number.</p></div></div>' if configured else '<div class="card"><h3>🚀 Getting Started</h3><div class="setup-steps"><h4>Complete these steps to activate your bot:</h4><ol><li>Click "Complete Setup" above</li><li>Enter your WhatsApp Business API credentials</li><li>Configure your webhook in Meta Business</li><li>Send a test message to verify everything works</li></ol></div></div>'}
+        </div>
+        
+        <script>
+            // Initialize Shopify App Bridge
+            const AppBridge = window['app-bridge'];
+            const createApp = AppBridge.default;
+            const app = createApp({{
+                apiKey: '{settings.SHOPIFY_API_KEY}',
+                host: '{host or ''}'
+            }});
+            
+            function testBot() {{
+                if ({str(configured).lower()}) {{
+                    window.open('https://wa.me/{store.whatsapp_phone_number_id or ''}?text=Hi', '_blank');
+                }} else {{
+                    alert('Please complete the WhatsApp configuration first!');
+                    window.location.href = '/shopify/setup?shop={shop}';
+                }}
+            }}
+        </script>
+    </body>
+    </html>
+    """)
+
 @router.get("/admin")
 async def admin_dashboard(shop: str = Query(...), db: AsyncSession = Depends(get_async_db)):
     """Admin dashboard for managing WhatsApp bot"""
@@ -371,10 +578,29 @@ async def shopify_callback(
     # Register webhooks for app lifecycle events
     await register_webhooks(shop, access_token)
     
-    # Shopify expects immediate redirect to app UI after authentication
-    # For embedded apps, redirect to Shopify admin with app handle
-    app_handle = "social-commerce-3"  # This matches your Shopify Partner app handle
-    return RedirectResponse(url=f"https://admin.shopify.com/store/{shop.replace('.myshopify.com', '')}/apps/{app_handle}")
+    # After successful installation, redirect to setup page
+    # Use a client-side redirect to ensure proper loading in Shopify admin
+    return HTMLResponse(content=f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Installation Complete</title>
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge/3.7.8/app-bridge.js"></script>
+    </head>
+    <body>
+        <div style="text-align: center; padding: 50px; font-family: -apple-system, sans-serif;">
+            <h2>✅ Installation Successful!</h2>
+            <p>Redirecting to setup page...</p>
+        </div>
+        <script>
+            // Redirect to the setup page
+            setTimeout(function() {{
+                window.location.href = '/shopify/setup?shop={shop}';
+            }}, 1000);
+        </script>
+    </body>
+    </html>
+    """)
 
 
 @router.get("/setup")
@@ -1783,6 +2009,41 @@ async def terms_of_service():
     
     return HTMLResponse(content=terms_content)
 
+
+@router.get("/uninstall")
+async def uninstall_page(shop: str = Query(None)):
+    """Uninstall confirmation page"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    file_path = "static/uninstall.html"
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    else:
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Uninstall WhatsApp Shopping Bot</title>
+            <style>
+                body { font-family: -apple-system, sans-serif; text-align: center; padding: 50px; }
+                h1 { color: #dc3545; }
+                .button { display: inline-block; padding: 12px 24px; margin: 10px; text-decoration: none; border-radius: 8px; font-weight: 600; }
+                .button-cancel { background: #6c757d; color: white; }
+                .button-uninstall { background: #dc3545; color: white; }
+            </style>
+        </head>
+        <body>
+            <h1>😢 We're Sorry to See You Go!</h1>
+            <p>Are you sure you want to uninstall WhatsApp Shopping Bot?</p>
+            <p>All your settings and data will be removed.</p>
+            <div style="margin-top: 30px;">
+                <a href="javascript:history.back()" class="button button-cancel">← Keep the App</a>
+                <a href="#" onclick="alert('Please uninstall from Shopify admin panel'); return false;" class="button button-uninstall">Uninstall</a>
+            </div>
+        </body>
+        </html>
+        """)
 
 @router.get("/support") 
 async def support_page():

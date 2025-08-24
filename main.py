@@ -195,14 +195,20 @@ async def support():
     return HTMLResponse(content=support_html)
 
 @app.get("/")
-async def root(request: Request, shop: str = Query(None), hmac: str = Query(None), host: str = Query(None)):
+async def root(request: Request, shop: str = Query(None), hmac: str = Query(None), host: str = Query(None), embedded: str = Query(None)):
     from fastapi.responses import HTMLResponse, RedirectResponse
     
     # If this is a Shopify app installation request (has shop parameter)
     if shop:
-        print(f"[INFO] Shopify app installation request for shop: {shop}")
-        # Redirect to the proper installation flow
-        return RedirectResponse(url=f"/shopify/install?shop={shop}", status_code=302)
+        print(f"[INFO] Shopify app request for shop: {shop}")
+        
+        # Check if this is an embedded app request (coming from Shopify admin)
+        if embedded == "1" or host:
+            # This is an embedded app request - show the embedded page
+            return RedirectResponse(url=f"/shopify/embedded?shop={shop}&host={host or ''}", status_code=302)
+        else:
+            # This is an installation request
+            return RedirectResponse(url=f"/shopify/install?shop={shop}", status_code=302)
     
     # Otherwise serve the landing page for regular visitors
     
