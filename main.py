@@ -1,5 +1,5 @@
 # main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -195,8 +195,16 @@ async def support():
     return HTMLResponse(content=support_html)
 
 @app.get("/")
-async def root():
-    from fastapi.responses import HTMLResponse
+async def root(request: Request, shop: str = Query(None), hmac: str = Query(None), host: str = Query(None)):
+    from fastapi.responses import HTMLResponse, RedirectResponse
+    
+    # If this is a Shopify app installation request (has shop parameter)
+    if shop:
+        print(f"[INFO] Shopify app installation request for shop: {shop}")
+        # Redirect to the proper installation flow
+        return RedirectResponse(url=f"/shopify/install?shop={shop}", status_code=302)
+    
+    # Otherwise serve the landing page for regular visitors
     
     landing_page = """
     <!DOCTYPE html>

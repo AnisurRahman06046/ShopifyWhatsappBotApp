@@ -972,14 +972,13 @@ async def customer_data_request(request: Request, db: AsyncSession = Depends(get
         
         # Verify webhook signature
         signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
-        if settings.SHOPIFY_WEBHOOK_SECRET:
-            if not verify_webhook_signature(body, signature):
-                if settings.ENVIRONMENT == "production":
-                    raise HTTPException(status_code=401, detail="Unauthorized webhook")
-                else:
-                    print("[WARNING] Continuing despite signature mismatch (development mode)")
-        else:
+        if not settings.SHOPIFY_WEBHOOK_SECRET:
             print("[WARNING] SHOPIFY_WEBHOOK_SECRET not configured for GDPR webhook")
+            raise HTTPException(status_code=401, detail="Webhook verification not configured")
+        
+        if not verify_webhook_signature(body, signature):
+            print("[ERROR] GDPR data request webhook HMAC verification failed")
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
         
         # Parse request data
         request_data = json.loads(body.decode())
@@ -1033,14 +1032,13 @@ async def customer_data_redact(request: Request, db: AsyncSession = Depends(get_
         
         # Verify webhook signature
         signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
-        if settings.SHOPIFY_WEBHOOK_SECRET:
-            if not verify_webhook_signature(body, signature):
-                if settings.ENVIRONMENT == "production":
-                    raise HTTPException(status_code=401, detail="Unauthorized webhook")
-                else:
-                    print("[WARNING] Continuing despite signature mismatch (development mode)")
-        else:
+        if not settings.SHOPIFY_WEBHOOK_SECRET:
             print("[WARNING] SHOPIFY_WEBHOOK_SECRET not configured for GDPR webhook")
+            raise HTTPException(status_code=401, detail="Webhook verification not configured")
+        
+        if not verify_webhook_signature(body, signature):
+            print("[ERROR] GDPR customer redact webhook HMAC verification failed")
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
         
         # Parse request data
         request_data = json.loads(body.decode())
@@ -1081,9 +1079,14 @@ async def shop_data_redact(request: Request, db: AsyncSession = Depends(get_asyn
         body = await request.body()
         
         # Verify webhook signature  
-        signature = request.headers.get("X-Shopify-Hmac-Sha256")
+        signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
+        if not settings.SHOPIFY_WEBHOOK_SECRET:
+            print("[WARNING] SHOPIFY_WEBHOOK_SECRET not configured for GDPR webhook")
+            raise HTTPException(status_code=401, detail="Webhook verification not configured")
+        
         if not verify_webhook_signature(body, signature):
-            raise HTTPException(status_code=401, detail="Unauthorized webhook")
+            print("[ERROR] GDPR shop redact webhook HMAC verification failed")
+            raise HTTPException(status_code=401, detail="Invalid webhook signature")
         
         # Parse request data
         request_data = json.loads(body.decode())
