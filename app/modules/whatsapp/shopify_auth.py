@@ -372,8 +372,9 @@ async def shopify_callback(
     await register_webhooks(shop, access_token)
     
     # Shopify expects immediate redirect to app UI after authentication
-    # Always redirect to admin dashboard for Shopify compliance
-    return RedirectResponse(url=f"/shopify/admin?shop={shop}")
+    # For embedded apps, redirect to Shopify admin with app handle
+    app_handle = "social-commerce-3"  # This matches your Shopify Partner app handle
+    return RedirectResponse(url=f"https://admin.shopify.com/store/{shop.replace('.myshopify.com', '')}/apps/{app_handle}")
 
 
 @router.get("/setup")
@@ -996,6 +997,9 @@ async def customer_data_request(request: Request, db: AsyncSession = Depends(get
         
         return {"status": "success", "data": response_data}
         
+    except HTTPException:
+        # Re-raise HTTPExceptions (like 401 from signature verification)
+        raise
     except Exception as e:
         print(f"[ERROR] GDPR data request failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -1044,6 +1048,9 @@ async def customer_data_redact(request: Request, db: AsyncSession = Depends(get_
             "customer_id": customer_id
         }
         
+    except HTTPException:
+        # Re-raise HTTPExceptions (like 401 from signature verification)
+        raise
     except Exception as e:
         print(f"[ERROR] GDPR data deletion failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -1090,6 +1097,9 @@ async def shop_data_redact(request: Request, db: AsyncSession = Depends(get_asyn
             "records_deleted": deleted_records
         }
         
+    except HTTPException:
+        # Re-raise HTTPExceptions (like 401 from signature verification)
+        raise
     except Exception as e:
         print(f"[ERROR] GDPR shop deletion failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
