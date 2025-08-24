@@ -26,15 +26,15 @@ uri = "/shopify/webhooks/app/uninstalled"
 
 [[webhooks.subscriptions]]
 topics = ["customers/data_request"]
-uri = "/gdpr/customers/data_request"
+uri = "/shopify/gdpr/customers/data_request"
 
 [[webhooks.subscriptions]]
 topics = ["customers/redact"]
-uri = "/gdpr/customers/redact"
+uri = "/shopify/gdpr/customers/redact"
 
 [[webhooks.subscriptions]]
 topics = ["shop/redact"]  
-uri = "/gdpr/shop/redact"
+uri = "/shopify/gdpr/shop/redact"
 
 # App Proxy for frontend integration (optional)
 [app_proxy]

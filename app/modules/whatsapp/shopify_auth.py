@@ -940,6 +940,11 @@ async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async
         return {"status": "error", "message": str(e)}
 
 
+@router.get("/gdpr/customers/data_request")
+async def customer_data_request_get():
+    """GDPR data request endpoint verification"""
+    return {"status": "endpoint ready", "webhook": "customers/data_request", "method": "GET"}
+
 @router.post("/gdpr/customers/data_request")
 async def customer_data_request(request: Request, db: AsyncSession = Depends(get_async_db)):
     """Handle GDPR customer data request"""
@@ -990,6 +995,11 @@ async def customer_data_request(request: Request, db: AsyncSession = Depends(get
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/gdpr/customers/redact")
+async def customer_data_redact_get():
+    """GDPR customer redact endpoint verification"""
+    return {"status": "endpoint ready", "webhook": "customers/redact", "method": "GET"}
+
 @router.post("/gdpr/customers/redact")
 async def customer_data_redact(request: Request, db: AsyncSession = Depends(get_async_db)):
     """Handle GDPR customer data deletion request"""
@@ -1027,6 +1037,11 @@ async def customer_data_redact(request: Request, db: AsyncSession = Depends(get_
         print(f"[ERROR] GDPR data deletion failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+
+@router.get("/gdpr/shop/redact")
+async def shop_data_redact_get():
+    """GDPR shop redact endpoint verification"""
+    return {"status": "endpoint ready", "webhook": "shop/redact", "method": "GET"}
 
 @router.post("/gdpr/shop/redact")
 async def shop_data_redact(request: Request, db: AsyncSession = Depends(get_async_db)):
