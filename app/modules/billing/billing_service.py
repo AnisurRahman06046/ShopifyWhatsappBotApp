@@ -326,6 +326,46 @@ class BillingService:
             logger.error(f"Error activating charge: {str(e)}")
             return False
     
+    async def activate_free_plan(self, store, plan: BillingPlan) -> bool:
+        """Activate free plan for a store without creating Shopify charge"""
+        
+        try:
+            # Check if store already has an active subscription
+            existing_subscription = await self.get_store_subscription(store.id)
+            
+            if existing_subscription and existing_subscription.status == "active":
+                logger.info(f"Store {store.store_url} already has active subscription")
+                return True
+            
+            # Create free subscription
+            subscription = StoreSubscription(
+                store_id=store.id,
+                plan_id=plan.id,
+                status="active",
+                activated_at=datetime.utcnow(),
+                messages_used=0,
+                messages_reset_at=datetime.utcnow()
+            )
+            
+            self.db.add(subscription)
+            
+            # Log activation event
+            event = BillingEvent(
+                store_id=store.id,
+                event_type="free_plan_activated",
+                status="active"
+            )
+            self.db.add(event)
+            
+            await self.db.commit()
+            logger.info(f"Activated free plan for store {store.store_url}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error activating free plan: {str(e)}")
+            return False
+    
     async def cancel_subscription(self, shop: str, access_token: str) -> bool:
         """Cancel the active subscription for a store"""
         

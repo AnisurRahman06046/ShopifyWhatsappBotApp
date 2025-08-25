@@ -1,11 +1,17 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import HTMLResponse
 
 router = APIRouter()
 
 @router.get("/free")
-async def free_plan():
+async def free_plan(shop: str = Query(None)):
     """Free plan details for Shopify App Store listing"""
+    
+    # If shop parameter is provided, redirect to setup
+    if shop:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/shopify/setup?shop={shop}")
+    
     plan_html = """
     <!DOCTYPE html>
     <html>

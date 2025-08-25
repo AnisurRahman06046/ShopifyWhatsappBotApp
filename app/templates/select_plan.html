@@ -144,7 +144,7 @@
                         </div>
                     </div>
 
-                    <button onclick="selectPlan('free')" class="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-colors">
+                    <button onclick="selectPlan('free', '{% for plan in plans %}{% if plan.name == \"Free\" %}{{ plan.id }}{% endif %}{% endfor %}')" class="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-colors">
                         Start Free
                     </button>
                 </div>
@@ -252,7 +252,7 @@
                         </div>
                     </div>
 
-                    <button onclick="selectPlan('basic')" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                    <button onclick="selectPlan('basic', '{% for plan in plans %}{% if plan.name == \"Basic\" %}{{ plan.id }}{% endif %}{% endfor %}')" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
                         Choose Basic
                     </button>
                 </div>
@@ -359,7 +359,7 @@
                         </div>
                     </div>
 
-                    <button onclick="selectPlan('premium')" class="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+                    <button onclick="selectPlan('premium', '{% for plan in plans %}{% if plan.name == \"Premium\" %}{{ plan.id }}{% endif %}{% endfor %}')" class="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
                         Choose Premium
                     </button>
                 </div>
@@ -429,7 +429,7 @@
     </div>
 
     <script>
-        function selectPlan(planType) {
+        function selectPlan(planType, planId) {
             const urlParams = new URLSearchParams(window.location.search);
             const shop = urlParams.get('shop');
             
@@ -438,23 +438,42 @@
                 return;
             }
             
-            // Get plan ID from database - we'll need to update this with actual plan IDs
-            // For now, redirect to the existing pricing routes as fallback
+            if (!planId) {
+                alert('Plan not found. Please try again.');
+                return;
+            }
+            
+            // For free plan, directly activate it
             if (planType === 'free') {
-                // For free plan, we could directly activate it
-                fetch(`/billing/create-charge?shop=${shop}&plan_id=FREE_PLAN_ID`, { method: 'POST' })
+                fetch(`/billing/create-charge?shop=${shop}&plan_id=${planId}`, { method: 'POST' })
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
                             window.location.href = data.redirect_url || `/shopify/setup?shop=${shop}`;
                         } else {
-                            window.location.href = `/free?shop=${shop}`;
+                            // Fallback to pricing route if billing fails
+                            window.location.href = `/shopify/setup?shop=${shop}`;
                         }
                     })
-                    .catch(() => window.location.href = `/free?shop=${shop}`);
+                    .catch(() => {
+                        // If fetch fails, go to setup directly
+                        window.location.href = `/shopify/setup?shop=${shop}`;
+                    });
             } else {
-                // For paid plans, redirect to pricing routes for now
-                window.location.href = `/${planType}?shop=${shop}`;
+                // For paid plans, create charge
+                fetch(`/billing/create-charge?shop=${shop}&plan_id=${planId}`, { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.confirmation_url) {
+                            window.location.href = data.confirmation_url;
+                        } else {
+                            // Fallback to pricing routes
+                            window.location.href = `/${planType}?shop=${shop}`;
+                        }
+                    })
+                    .catch(() => {
+                        window.location.href = `/${planType}?shop=${shop}`;
+                    });
             }
         }
     </script>
