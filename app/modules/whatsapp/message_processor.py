@@ -210,9 +210,9 @@ class MessageProcessor:
         """Display product catalog from database (NO API CALLS!)"""
         
         if not self.product_repo:
-            # Fallback to old method if no db session
-            products = await self.shopify.get_products(limit=10)
-            return await self._show_products_fallback(from_number, products)
+            # No database session available - return error message
+            await self.whatsapp.send_message(from_number, "❌ Product catalog is currently unavailable. Please try again later.")
+            return
         
         try:
             print(f"[DEBUG] show_products called: page={page}, store_id={self.store.id}")
@@ -342,16 +342,11 @@ class MessageProcessor:
                 message="Sorry, there was an error loading products. Please try again later."
             )
             
-            # Fallback to Shopify API
-            try:
-                products = await self.shopify.get_products(limit=10)
-                await self._show_products_fallback(from_number, products)
-            except Exception as fallback_error:
-                print(f"[ERROR] Fallback also failed: {str(fallback_error)}")
-                await self.whatsapp.send_message(
-                    to=from_number,
-                    message="Product browsing is temporarily unavailable. Please contact support."
-                )
+            # No fallback to REST API - products should be in database
+            await self.whatsapp.send_message(
+                to=from_number,
+                message="Product browsing is temporarily unavailable. Please contact support."
+            )
     
     async def _show_products_fallback(self, from_number: str, products: list):
         """Fallback method using Shopify API"""
@@ -387,15 +382,11 @@ class MessageProcessor:
         """Show detailed product information with quantity controls from database"""
         
         if not self.product_repo:
-            # Fallback to Shopify API
-            product = await self.shopify.get_product(product_id)
-            if not product:
-                await self.whatsapp.send_message(
-                    to=from_number,
-                    message="Sorry, product not found."
-                )
-                return
-            await self.whatsapp.send_product_message(from_number, product, quantity)
+            # No database session available
+            await self.whatsapp.send_message(
+                to=from_number,
+                message="Product details are currently unavailable. Please try again later."
+            )
             return
         
         try:
@@ -417,15 +408,11 @@ class MessageProcessor:
             
         except Exception as e:
             print(f"[ERROR] Failed to get product details from database: {str(e)}")
-            # Fallback to Shopify API
-            product = await self.shopify.get_product(product_id)
-            if not product:
-                await self.whatsapp.send_message(
-                    to=from_number,
-                    message="Sorry, product not found."
-                )
-                return
-            await self.whatsapp.send_product_message(from_number, product, quantity)
+            await self.whatsapp.send_message(
+                to=from_number,
+                message="Sorry, product not found."
+            )
+            return
     
     def _convert_db_product_to_whatsapp_format(self, db_product) -> dict:
         """Convert database product to format expected by WhatsApp service"""
@@ -487,10 +474,9 @@ class MessageProcessor:
             except Exception as e:
                 print(f"[ERROR] Failed to get product from database for cart: {str(e)}")
         
-        # Fallback to Shopify API if database lookup failed
+        # No fallback to REST API - must be in database
         if not product:
-            print("[WARNING] Using Shopify API fallback for add_to_cart")
-            product = await self.shopify.get_product(product_id)
+            print("[ERROR] Product not found in database for add_to_cart")
         
         if not product:
             await self.whatsapp.send_message(
@@ -683,8 +669,8 @@ class MessageProcessor:
             return
         
         try:
-            # Create Shopify checkout
-            checkout_url = await self.shopify.create_checkout(valid_items)
+            # Create Shopify draft order using GraphQL (not deprecated REST)
+            checkout_url = await self._create_draft_order_graphql(valid_items)
             
             if checkout_url:
                 await self.whatsapp.send_message(
@@ -934,3 +920,36 @@ Need assistance? Contact our support team!"""
         except Exception as e:
             print(f"[ERROR] Failed to show category products: {str(e)}")
             await self.show_products(from_number)
+
+    async def _create_draft_order_graphql(self, cart_items) -> str:
+        """Create draft order using GraphQL API (not deprecated REST)"""
+        try:
+            from .shopify_api_adapter import ShopifyAPIAdapter
+            
+            # Create GraphQL-enabled API adapter
+            adapter = ShopifyAPIAdapter(
+                store_url=self.store.store_url,
+                access_token=self.store.access_token,
+                use_graphql=True
+            )
+            
+            # Convert cart items to draft order format
+            line_items = []
+            for item in cart_items:
+                line_items.append({
+                    "variantId": f"gid://shopify/ProductVariant/{item['variant_id']}",
+                    "quantity": item['quantity']
+                })
+            
+            # Create draft order via GraphQL
+            draft_order_data = {"lineItems": line_items}
+            result = await adapter.create_draft_order(draft_order_data)
+            
+            if result and result.get("invoice_url"):
+                return result["invoice_url"]
+            
+            return None
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to create GraphQL draft order: {str(e)}")
+            return None

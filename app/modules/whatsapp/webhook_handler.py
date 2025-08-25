@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_async_db
 from app.core.config import settings
 from .whatsapp_repository import WhatsAppRepository, ShopifyStoreRepository
-from .whatsapp_service import WhatsAppService, ShopifyService
+from .whatsapp_service import WhatsAppService
 from .message_processor import MessageProcessor
 import json
 import logging
@@ -103,7 +103,6 @@ async def handle_messages(value: dict, db: AsyncSession):
     
     # Initialize services with billing service for usage tracking
     whatsapp_service = WhatsAppService(store, billing_service)
-    shopify_service = ShopifyService(store.store_url, store.access_token)
     whatsapp_repo = WhatsAppRepository(db)
     
     # Process each message
@@ -117,7 +116,7 @@ async def handle_messages(value: dict, db: AsyncSession):
         # Create message processor with database session for product caching
         processor = MessageProcessor(
             whatsapp_service=whatsapp_service,
-            shopify_service=shopify_service,
+            shopify_service=None,  # No longer needed - using database
             whatsapp_repo=whatsapp_repo,
             store=store,
             db_session=db  # Pass database session for product repository
