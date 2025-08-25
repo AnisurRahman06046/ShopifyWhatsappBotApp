@@ -6,7 +6,7 @@ from app.core.database import get_async_db
 from app.core.config import settings
 from .whatsapp_repository import ShopifyStoreRepository
 from .whatsapp_models import ShopifyStore
-from .product_sync_service import ProductSyncService
+from .product_sync_service_v2 import ProductSyncServiceV2 as ProductSyncService
 from pydantic import BaseModel
 import httpx
 import hmac
@@ -55,7 +55,7 @@ async def configure_whatsapp(
             # Import required modules for background task
             import asyncio
             from app.core.database import AsyncSessionLocal
-            from app.modules.whatsapp.product_sync_service import ProductSyncService
+            from app.modules.whatsapp.product_sync_service_v2 import ProductSyncServiceV2 as ProductSyncService
             
             # Create background task with new database session
             async def background_sync():
