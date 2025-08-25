@@ -263,13 +263,40 @@ async def embedded_app_page(shop: str = Query(...), host: str = Query(None), db:
         </div>
         
         <script>
-            // Initialize Shopify App Bridge
+            // Initialize Shopify App Bridge with Session Tokens
             const AppBridge = window['app-bridge'];
             const createApp = AppBridge.default;
+            const {{ authenticatedFetch }} = AppBridge.Actions;
+            
             const app = createApp({{
                 apiKey: '{settings.SHOPIFY_API_KEY}',
                 host: '{host or ''}'
             }});
+            
+            // Initialize authenticated fetch for session tokens
+            const fetch = authenticatedFetch(app);
+            
+            // Function to make authenticated API calls
+            async function authenticatedApiCall(url, options = {{}}) {{
+                try {{
+                    const response = await fetch(url, {{
+                        headers: {{
+                            'Content-Type': 'application/json',
+                            ...options.headers
+                        }},
+                        ...options
+                    }});
+                    
+                    if (!response.ok) {{
+                        throw new Error(`API call failed: ${{response.status}}`);
+                    }}
+                    
+                    return response.json();
+                }} catch (error) {{
+                    console.error('Authenticated API call failed:', error);
+                    throw error;
+                }}
+            }}
             
             function testBot() {{
                 if ({str(configured).lower()}) {{

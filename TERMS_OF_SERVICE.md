@@ -31,10 +31,9 @@ WhatsApp Shopping Bot is a Shopify application that enables merchants to:
 ## 4. Subscription and Billing
 
 ### 4.1 Plans
-- **Free Plan**: 100 messages/month, basic features
-- **Starter**: $9.99/month, 1,000 messages, 7-day trial
-- **Professional**: $29.99/month, 5,000 messages, advanced features
-- **Enterprise**: $99.99/month, 50,000 messages, priority support
+- **Free Plan**: $0/month, 100 messages/month, basic features
+- **Basic**: $4.99/month, 1,000 messages, standard features
+- **Premium**: $79/month, 10,000 messages, advanced features, priority support
 
 ### 4.2 Billing Terms
 - Subscriptions are billed monthly through Shopify
