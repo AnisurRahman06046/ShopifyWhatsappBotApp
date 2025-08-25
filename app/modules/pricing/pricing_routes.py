@@ -49,7 +49,7 @@ async def free_plan():
                 <div class="feature-icon">✅</div>
                 <div class="feature-text">
                     <strong>Product catalog browsing</strong>
-                    <div class="limitation">Customers can browse your products via WhatsApp</div>
+                    <div class="limitation">Customers browse your Shopify products via WhatsApp</div>
                 </div>
             </div>
 
@@ -57,7 +57,7 @@ async def free_plan():
                 <div class="feature-icon">✅</div>
                 <div class="feature-text">
                     <strong>Shopping cart functionality</strong>
-                    <div class="limitation">Add/remove items, quantity management</div>
+                    <div class="limitation">Add/remove items, quantity management, view cart</div>
                 </div>
             </div>
 
@@ -65,7 +65,7 @@ async def free_plan():
                 <div class="feature-icon">✅</div>
                 <div class="feature-text">
                     <strong>Secure Shopify checkout</strong>
-                    <div class="limitation">Direct checkout link generation</div>
+                    <div class="limitation">Direct integration with Shopify checkout system</div>
                 </div>
             </div>
 
@@ -73,7 +73,7 @@ async def free_plan():
                 <div class="feature-icon">✅</div>
                 <div class="feature-text">
                     <strong>Real-time product sync</strong>
-                    <div class="limitation">Automatic inventory and price updates</div>
+                    <div class="limitation">Automatic inventory, price, and product updates</div>
                 </div>
             </div>
 
@@ -81,34 +81,26 @@ async def free_plan():
                 <div class="feature-icon">✅</div>
                 <div class="feature-text">
                     <strong>Basic welcome message</strong>
-                    <div class="limitation">Customizable greeting for customers</div>
+                    <div class="limitation">Customizable greeting for new customers</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">⏳</div>
+                <div class="feature-text">
+                    <strong>Order tracking</strong>
+                    <div class="limitation">Coming soon - Track order status via WhatsApp</div>
                 </div>
             </div>
 
             <div class="feature-item">
                 <div class="feature-icon">❌</div>
                 <div class="feature-text">
-                    <strong>Advanced analytics</strong>
-                    <div class="limitation">Upgrade to Basic plan for detailed insights</div>
+                    <strong>Analytics dashboard</strong>
+                    <div class="limitation">Available in Basic plan</div>
                 </div>
             </div>
 
-            <div class="feature-item">
-                <div class="feature-icon">❌</div>
-                <div class="feature-text">
-                    <strong>Priority support</strong>
-                    <div class="limitation">Community support only</div>
-                </div>
-            </div>
-
-            <div style="text-align: center; margin-top: 30px;">
-                <a href="https://apps.shopify.com/whatsapp-shopping-bot" class="cta-button">
-                    🚀 Start Free Trial
-                </a>
-                <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
-                    No credit card required • Setup in minutes
-                </p>
-            </div>
         </div>
 
         <div style="text-align: center; margin-top: 40px;">
@@ -166,32 +158,16 @@ async def basic_plan():
             <div class="feature-item">
                 <div class="feature-icon">✅</div>
                 <div class="feature-text">
-                    <strong>Advanced analytics dashboard</strong>
-                    <div class="limitation">Conversation metrics, conversion tracking, customer insights</div>
+                    <strong>Order tracking via WhatsApp</strong>
+                    <div class="limitation">Customers can check order status through chat</div>
                 </div>
             </div>
 
             <div class="feature-item">
                 <div class="feature-icon">✅</div>
                 <div class="feature-text">
-                    <strong>Custom welcome messages</strong>
-                    <div class="limitation">Multiple message templates, personalization</div>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <div class="feature-icon">✅</div>
-                <div class="feature-text">
-                    <strong>Product collections support</strong>
-                    <div class="limitation">Organize products by categories, featured items</div>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <div class="feature-icon">✅</div>
-                <div class="feature-text">
-                    <strong>Order status notifications</strong>
-                    <div class="limitation">Automatic updates for order fulfillment</div>
+                    <strong>Enhanced welcome messages</strong>
+                    <div class="limitation">More customization options and templates</div>
                 </div>
             </div>
 
@@ -204,27 +180,40 @@ async def basic_plan():
             </div>
 
             <div class="feature-item">
-                <div class="feature-icon">✅</div>
+                <div class="feature-icon">⏳</div>
                 <div class="feature-text">
-                    <strong>Multi-language support</strong>
-                    <div class="limitation">English, Spanish, French, German, Portuguese</div>
+                    <strong>Basic analytics dashboard</strong>
+                    <div class="limitation">Coming soon - Message counts, basic metrics</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">⏳</div>
+                <div class="feature-text">
+                    <strong>Product collections support</strong>
+                    <div class="limitation">Coming soon - Browse products by categories</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">⏳</div>
+                <div class="feature-text">
+                    <strong>Order notifications</strong>
+                    <div class="limitation">Coming soon - Automatic order status updates</div>
                 </div>
             </div>
 
             <div class="feature-item">
                 <div class="feature-icon">❌</div>
                 <div class="feature-text">
-                    <strong>Abandoned cart recovery</strong>
+                    <strong>Advanced features</strong>
                     <div class="limitation">Available in Premium plan</div>
                 </div>
             </div>
 
             <div style="text-align: center; margin-top: 30px;">
-                <a href="https://apps.shopify.com/whatsapp-shopping-bot" class="cta-button">
-                    🚀 Start 7-Day Free Trial
-                </a>
-                <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
-                    $4.99/month or $49.99/year • Cancel anytime
+                <p style="color: #666; font-size: 0.9rem;">
+                    $4.99/month or $49.99/year • 7-day free trial
                 </p>
             </div>
         </div>
@@ -282,75 +271,72 @@ async def premium_plan():
             </div>
 
             <div class="feature-item">
-                <div class="feature-icon">✅</div>
+                <div class="feature-icon">⏳</div>
+                <div class="feature-text">
+                    <strong>Advanced analytics dashboard</strong>
+                    <div class="limitation">Coming soon - Detailed conversation metrics and sales insights</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">⏳</div>
+                <div class="feature-text">
+                    <strong>Priority support</strong>
+                    <div class="limitation">Coming soon - Fast response time, dedicated support</div>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">⏳</div>
                 <div class="feature-text">
                     <strong>Abandoned cart recovery</strong>
-                    <div class="limitation">Automatic follow-up messages to recover lost sales</div>
+                    <div class="limitation">Coming soon - Automatic follow-up messages</div>
                 </div>
             </div>
 
             <div class="feature-item">
-                <div class="feature-icon">✅</div>
+                <div class="feature-icon">⏳</div>
                 <div class="feature-text">
                     <strong>Advanced product search</strong>
-                    <div class="limitation">AI-powered search, filters, recommendations</div>
+                    <div class="limitation">Coming soon - Smart search and filtering</div>
                 </div>
             </div>
 
             <div class="feature-item">
-                <div class="feature-icon">✅</div>
+                <div class="feature-icon">⏳</div>
                 <div class="feature-text">
                     <strong>Customer segmentation</strong>
-                    <div class="limitation">Targeted messages based on purchase history</div>
+                    <div class="limitation">Coming soon - Targeted messaging features</div>
                 </div>
             </div>
 
             <div class="feature-item">
-                <div class="feature-icon">✅</div>
+                <div class="feature-icon">⏳</div>
                 <div class="feature-text">
                     <strong>Broadcast messaging</strong>
-                    <div class="limitation">Send promotions to customer lists</div>
+                    <div class="limitation">Coming soon - Send promotions to customer lists</div>
                 </div>
             </div>
 
             <div class="feature-item">
-                <div class="feature-icon">✅</div>
+                <div class="feature-icon">⏳</div>
                 <div class="feature-text">
-                    <strong>Advanced integrations</strong>
-                    <div class="limitation">Zapier, Google Analytics, Facebook Pixel</div>
+                    <strong>Multi-language support</strong>
+                    <div class="limitation">Coming soon - Support for multiple languages</div>
                 </div>
             </div>
 
             <div class="feature-item">
-                <div class="feature-icon">✅</div>
-                <div class="feature-text">
-                    <strong>Priority support + phone</strong>
-                    <div class="limitation">1-hour response time, dedicated account manager</div>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <div class="feature-icon">✅</div>
-                <div class="feature-text">
-                    <strong>White-label branding</strong>
-                    <div class="limitation">Remove "Powered by" branding</div>
-                </div>
-            </div>
-
-            <div class="feature-item">
-                <div class="feature-icon">✅</div>
+                <div class="feature-icon">⏳</div>
                 <div class="feature-text">
                     <strong>Custom webhooks & API</strong>
-                    <div class="limitation">Advanced automation and third-party integrations</div>
+                    <div class="limitation">Coming soon - Advanced automation capabilities</div>
                 </div>
             </div>
 
             <div style="text-align: center; margin-top: 30px;">
-                <a href="https://apps.shopify.com/whatsapp-shopping-bot" class="cta-button">
-                    🚀 Start 7-Day Free Trial
-                </a>
-                <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
-                    $79/month or $599/year • Full refund guarantee
+                <p style="color: #666; font-size: 0.9rem;">
+                    $79/month or $599/year • 7-day free trial
                 </p>
             </div>
         </div>
