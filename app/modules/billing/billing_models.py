@@ -117,3 +117,22 @@ class BillingEvent(Base):
     
     # Relationships
     store = relationship("ShopifyStore")
+
+
+class FreeUsageTracking(Base):
+    """Track usage for free tier users (no Shopify subscription)"""
+    __tablename__ = "free_usage_tracking"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    store_id = Column(UUID(as_uuid=True), ForeignKey("shopify_stores.id", ondelete="CASCADE"))
+    
+    # Usage counters
+    messages_used = Column(Integer, default=0)
+    messages_limit = Column(Integer, default=100)  # Free tier limit
+    messages_reset_at = Column(DateTime, default=datetime.utcnow)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    store = relationship("ShopifyStore")

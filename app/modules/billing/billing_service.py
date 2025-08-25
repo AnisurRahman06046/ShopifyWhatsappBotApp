@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, List
 import httpx
 import json
 from app.core.config import settings
-from .billing_models import BillingPlan, StoreSubscription, UsageRecord, BillingEvent
+from .billing_models import BillingPlan, StoreSubscription, UsageRecord, BillingEvent, FreeUsageTracking
 from app.modules.whatsapp.whatsapp_models import ShopifyStore
 import logging
 
@@ -31,97 +31,83 @@ class BillingService:
         if existing_plans:
             return existing_plans
         
-        # Define default plans
+        # Define default plans matching the pricing routes exactly
         default_plans = [
             {
                 "name": "Free",
                 "price": 0.00,
                 "interval": "EVERY_30_DAYS",
                 "trial_days": 0,
-                "messages_limit": 100,
+                "messages_limit": 100,  # From pricing routes
                 "stores_limit": 1,
                 "features": json.dumps({
                     "basic_chat": True,
                     "product_browsing": True,
                     "cart_management": True,
                     "checkout": True,
+                    "product_sync": True,
+                    "welcome_message": True,
                     "support": "community",
                     "analytics": False,
-                    "custom_branding": False,
+                    "order_tracking": False,
                     "priority_support": False
                 }),
                 "test": False,
                 "terms": "Free plan - 100 messages per month"
             },
             {
-                "name": "Starter",
-                "price": 9.99,
+                "name": "Basic",  # Changed to match pricing routes
+                "price": 4.99,   # Updated to match pricing routes
                 "interval": "EVERY_30_DAYS",
                 "trial_days": 7,
-                "messages_limit": 1000,
+                "messages_limit": 1000,  # From pricing routes
                 "stores_limit": 1,
                 "features": json.dumps({
                     "basic_chat": True,
                     "product_browsing": True,
                     "cart_management": True,
                     "checkout": True,
+                    "product_sync": True,
+                    "welcome_message": True,
+                    "enhanced_welcome": True,
+                    "order_tracking": True,
                     "support": "email",
                     "analytics": True,
-                    "custom_branding": False,
-                    "priority_support": False,
-                    "automated_responses": True
+                    "product_collections": True,
+                    "order_notifications": True,
+                    "priority_support": False
                 }),
                 "test": False,
-                "terms": "Starter plan - 1,000 messages per month"
+                "terms": "Basic plan - 1,000 messages per month"
             },
             {
-                "name": "Professional",
-                "price": 29.99,
+                "name": "Premium",  # Changed to match pricing routes
+                "price": 79.00,     # Updated to match pricing routes
                 "interval": "EVERY_30_DAYS",
-                "trial_days": 14,
-                "messages_limit": 5000,
+                "trial_days": 7,
+                "messages_limit": 10000,  # From pricing routes
                 "stores_limit": 1,
                 "features": json.dumps({
                     "basic_chat": True,
                     "product_browsing": True,
                     "cart_management": True,
                     "checkout": True,
-                    "support": "priority",
-                    "analytics": True,
-                    "custom_branding": True,
-                    "priority_support": True,
-                    "automated_responses": True,
+                    "product_sync": True,
+                    "welcome_message": True,
+                    "enhanced_welcome": True,
+                    "order_tracking": True,
                     "advanced_analytics": True,
-                    "api_access": True
+                    "priority_support": True,
+                    "abandoned_cart_recovery": True,
+                    "advanced_search": True,
+                    "customer_segmentation": True,
+                    "broadcast_messaging": True,
+                    "multi_language": True,
+                    "webhooks_api": True,
+                    "support": "priority"
                 }),
                 "test": False,
-                "terms": "Professional plan - 5,000 messages per month"
-            },
-            {
-                "name": "Enterprise",
-                "price": 99.99,
-                "interval": "EVERY_30_DAYS",
-                "trial_days": 14,
-                "messages_limit": 50000,
-                "stores_limit": 5,
-                "features": json.dumps({
-                    "basic_chat": True,
-                    "product_browsing": True,
-                    "cart_management": True,
-                    "checkout": True,
-                    "support": "dedicated",
-                    "analytics": True,
-                    "custom_branding": True,
-                    "priority_support": True,
-                    "automated_responses": True,
-                    "advanced_analytics": True,
-                    "api_access": True,
-                    "white_label": True,
-                    "custom_integrations": True,
-                    "sla": True
-                }),
-                "test": False,
-                "terms": "Enterprise plan - 50,000 messages per month"
+                "terms": "Premium plan - 10,000 messages per month"
             }
         ]
         
@@ -405,10 +391,10 @@ class BillingService:
             return False
     
     async def check_usage_limit(self, store_id: str) -> Dict[str, Any]:
-        """Check if store has reached its usage limit"""
+        """Check if store has reached its usage limit based on Shopify subscription"""
         
         try:
-            # Get active subscription
+            # Get active subscription (created by Shopify billing)
             result = await self.db.execute(
                 select(StoreSubscription).where(
                     and_(
@@ -422,60 +408,26 @@ class BillingService:
             subscription = result.scalar_one_or_none()
             
             if not subscription:
-                # No active subscription - create a free tier subscription automatically
-                logger.info(f"No subscription found for store {store_id}, creating free tier subscription")
+                # No subscription = Free tier, check free usage tracking
+                free_usage = await self._get_or_create_free_usage(store_id)
                 
-                # Get or create the free plan
-                free_plan_result = await self.db.execute(
-                    select(BillingPlan).where(BillingPlan.name == "Free")
-                )
-                free_plan = free_plan_result.scalar_one_or_none()
+                # Check monthly reset for free tier
+                if free_usage.messages_reset_at < datetime.utcnow() - timedelta(days=30):
+                    free_usage.messages_used = 0
+                    free_usage.messages_reset_at = datetime.utcnow()
+                    await self.db.commit()
                 
-                if not free_plan:
-                    # Create free plan if it doesn't exist
-                    free_plan = BillingPlan(
-                        name="Free",
-                        price=0.00,
-                        interval="EVERY_30_DAYS",
-                        trial_days=0,
-                        messages_limit=1000,  # Generous free tier for testing
-                        stores_limit=1,
-                        features=json.dumps({
-                            "basic_chat": True,
-                            "product_browsing": True,
-                            "cart_management": True,
-                            "checkout": True,
-                            "support": "community"
-                        }),
-                        test=False,
-                        terms="Free plan - 1000 messages per month"
-                    )
-                    self.db.add(free_plan)
-                    await self.db.flush()
+                limit_reached = free_usage.messages_used >= free_usage.messages_limit
                 
-                # Create free subscription for the store
-                subscription = StoreSubscription(
-                    store_id=store_id,
-                    plan_id=free_plan.id,
-                    status="active",
-                    trial_ends_at=None,
-                    messages_used=0,
-                    messages_reset_at=datetime.utcnow(),
-                    shopify_charge_id=None
-                )
-                self.db.add(subscription)
-                await self.db.commit()
-                
-                # Reload with plan relationship
-                await self.db.refresh(subscription)
-                result = await self.db.execute(
-                    select(StoreSubscription).where(
-                        StoreSubscription.id == subscription.id
-                    ).options(
-                        selectinload(StoreSubscription.plan)
-                    )
-                )
-                subscription = result.scalar_one()
+                return {
+                    "has_subscription": False,
+                    "limit_reached": limit_reached,
+                    "messages_used": free_usage.messages_used,
+                    "messages_limit": free_usage.messages_limit,
+                    "messages_remaining": max(0, free_usage.messages_limit - free_usage.messages_used),
+                    "plan_name": "Free",
+                    "reset_date": free_usage.messages_reset_at + timedelta(days=30)
+                }
             
             # Check if we need to reset the counter (monthly reset)
             if subscription.messages_reset_at < datetime.utcnow() - timedelta(days=30):
@@ -499,7 +451,11 @@ class BillingService:
             logger.error(f"Error checking usage limit: {str(e)}")
             return {
                 "has_subscription": False,
-                "limit_reached": True,
+                "limit_reached": True,  # Fail safe - block if error
+                "messages_used": 0,
+                "messages_limit": 100,
+                "messages_remaining": 0,
+                "plan_name": "Error",
                 "error": str(e)
             }
     
@@ -510,10 +466,10 @@ class BillingService:
         quantity: int = 1,
         **kwargs
     ) -> bool:
-        """Record usage for billing purposes"""
+        """Record usage for stores with active Shopify subscriptions"""
         
         try:
-            # Get active subscription
+            # Get active subscription (only exists if user subscribed via Shopify)
             result = await self.db.execute(
                 select(StoreSubscription).where(
                     and_(
@@ -525,7 +481,7 @@ class BillingService:
             subscription = result.scalar_one_or_none()
             
             if subscription:
-                # Create usage record
+                # Create usage record for paid subscribers
                 usage_record = UsageRecord(
                     subscription_id=subscription.id,
                     record_type=record_type,
@@ -534,18 +490,45 @@ class BillingService:
                 )
                 self.db.add(usage_record)
                 
-                # Update messages counter if it's a message
-                if record_type == "message_sent":
+                # Update messages counter for both sent and received messages
+                if record_type in ["message_sent", "message_received"]:
                     subscription.messages_used += quantity
                 
                 await self.db.commit()
+                logger.debug(f"Recorded usage for store {store_id}: {record_type} x{quantity}")
                 return True
-            
-            return False
+            else:
+                # Free tier users - track in separate table
+                free_usage = await self._get_or_create_free_usage(store_id)
+                if record_type in ["message_sent", "message_received"]:
+                    free_usage.messages_used += quantity
+                    await self.db.commit()
+                    logger.debug(f"Recorded free tier usage for store {store_id}: {record_type} x{quantity}")
+                return True
             
         except Exception as e:
             logger.error(f"Error recording usage: {str(e)}")
             return False
+    
+    async def _get_or_create_free_usage(self, store_id: str) -> FreeUsageTracking:
+        """Get or create free tier usage tracking for a store"""
+        
+        result = await self.db.execute(
+            select(FreeUsageTracking).where(FreeUsageTracking.store_id == store_id)
+        )
+        free_usage = result.scalar_one_or_none()
+        
+        if not free_usage:
+            free_usage = FreeUsageTracking(
+                store_id=store_id,
+                messages_used=0,
+                messages_limit=100,  # Free tier limit
+                messages_reset_at=datetime.utcnow()
+            )
+            self.db.add(free_usage)
+            await self.db.flush()  # Get the ID
+        
+        return free_usage
     
     async def get_store_subscription(self, store_id: str) -> Optional[StoreSubscription]:
         """Get the current subscription for a store"""

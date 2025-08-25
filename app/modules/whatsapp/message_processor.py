@@ -1,6 +1,9 @@
 import json
 from typing import Dict, List, Any
 from .product_repository import ProductRepository
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class MessageProcessor:
@@ -11,6 +14,14 @@ class MessageProcessor:
         self.store = store
         self.db_session = db_session
         self.product_repo = ProductRepository(db_session) if db_session else None
+    
+    def _check_message_limit_response(self, response):
+        """Check if the WhatsApp response indicates message limit reached"""
+        if isinstance(response, dict) and response.get("error") == "message_limit_reached":
+            usage = response.get("usage", {})
+            logger.warning(f"Message limit reached for store {self.store.store_url}: {usage}")
+            return True
+        return False
 
     async def process_text_message(self, from_number: str, text: str, session):
         """Process text messages from customers"""
@@ -70,11 +81,16 @@ class MessageProcessor:
             {"id": "help", "title": "❓ Help"}
         ]
         
-        await self.whatsapp.send_button_message(
+        response = await self.whatsapp.send_button_message(
             to=from_number,
             text=self.store.welcome_message,
             buttons=buttons
         )
+        
+        # Check if message limit was reached
+        if self._check_message_limit_response(response):
+            # Log the limit reached event - no further action needed as user won't get the message
+            pass
 
     async def send_main_menu(self, from_number: str):
         """Send main menu options"""

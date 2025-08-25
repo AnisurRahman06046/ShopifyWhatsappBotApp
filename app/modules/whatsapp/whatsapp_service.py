@@ -5,13 +5,23 @@ from app.core.config import settings
 
 
 class WhatsAppService:
-    def __init__(self, store_config):
+    def __init__(self, store_config, billing_service=None):
         self.token = store_config.whatsapp_token
         self.phone_number_id = store_config.whatsapp_phone_number_id
         self.base_url = f"https://graph.facebook.com/v18.0/{self.phone_number_id}"
+        self.store = store_config
+        self.billing_service = billing_service
 
     async def send_message(self, to: str, message: str):
-        """Send a simple text message"""
+        """Send a simple text message with usage tracking"""
+        
+        # Check usage limits before sending
+        if self.billing_service:
+            usage_check = await self.billing_service.check_usage_limit(self.store.id)
+            if usage_check.get("limit_reached", False):
+                print(f"[WARNING] Message limit reached for store {self.store.store_url}")
+                return {"error": "message_limit_reached", "usage": usage_check}
+        
         url = f"{self.base_url}/messages"
         headers = {
             "Authorization": f"Bearer {self.token}",
@@ -27,10 +37,31 @@ class WhatsAppService:
         
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=data)
-            return response.json()
+            result = response.json()
+            
+            # Record outgoing message usage if successful
+            if response.status_code == 200 and self.billing_service:
+                await self.billing_service.record_usage(
+                    store_id=self.store.id,
+                    record_type="message_sent",
+                    quantity=1,
+                    phone_number=to,
+                    message_type="text",
+                    description="Outgoing text message"
+                )
+            
+            return result
 
     async def send_button_message(self, to: str, text: str, buttons: List[Dict[str, str]]):
-        """Send an interactive button message"""
+        """Send an interactive button message with usage tracking"""
+        
+        # Check usage limits before sending
+        if self.billing_service:
+            usage_check = await self.billing_service.check_usage_limit(self.store.id)
+            if usage_check.get("limit_reached", False):
+                print(f"[WARNING] Message limit reached for store {self.store.store_url}")
+                return {"error": "message_limit_reached", "usage": usage_check}
+        
         url = f"{self.base_url}/messages"
         headers = {
             "Authorization": f"Bearer {self.token}",
@@ -62,10 +93,31 @@ class WhatsAppService:
         
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=data)
-            return response.json()
+            result = response.json()
+            
+            # Record outgoing message usage if successful
+            if response.status_code == 200 and self.billing_service:
+                await self.billing_service.record_usage(
+                    store_id=self.store.id,
+                    record_type="message_sent",
+                    quantity=1,
+                    phone_number=to,
+                    message_type="interactive_button",
+                    description="Outgoing button message"
+                )
+            
+            return result
 
     async def send_list_message(self, to: str, text: str, button_text: str, sections: List[Dict]):
-        """Send an interactive list message"""
+        """Send an interactive list message with usage tracking"""
+        
+        # Check usage limits before sending
+        if self.billing_service:
+            usage_check = await self.billing_service.check_usage_limit(self.store.id)
+            if usage_check.get("limit_reached", False):
+                print(f"[WARNING] Message limit reached for store {self.store.store_url}")
+                return {"error": "message_limit_reached", "usage": usage_check}
+        
         url = f"{self.base_url}/messages"
         headers = {
             "Authorization": f"Bearer {self.token}",
@@ -88,7 +140,20 @@ class WhatsAppService:
         
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=data)
-            return response.json()
+            result = response.json()
+            
+            # Record outgoing message usage if successful
+            if response.status_code == 200 and self.billing_service:
+                await self.billing_service.record_usage(
+                    store_id=self.store.id,
+                    record_type="message_sent",
+                    quantity=1,
+                    phone_number=to,
+                    message_type="interactive_list",
+                    description="Outgoing list message"
+                )
+            
+            return result
 
     async def send_product_message(self, to: str, product: Dict[str, Any], quantity: int = 1):
         """Send a product message with quantity controls"""

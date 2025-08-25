@@ -325,7 +325,7 @@ async def select_plan_page(
                             window.top.location.href = data.redirect_url;
                         } else if (data.status === 'success') {
                             // Fallback for successful free plan activation
-                            window.top.location.href = `/shopify/admin?shop=${encodeURIComponent('""" + shop + """')}`;
+                            window.top.location.href = `/shopify/setup?shop=${encodeURIComponent('""" + shop + """')}`;
                         } else {
                             throw new Error(data.detail || data.message || 'Failed to create charge');
                         }
@@ -392,7 +392,7 @@ async def create_charge(
             return {
                 "status": "success",
                 "message": "Free plan activated",
-                "redirect_url": f"/shopify/admin?shop={shop}"
+                "redirect_url": f"/shopify/setup?shop={shop}"
             }
         except Exception as e:
             logger.error(f"Error activating free plan for {shop}: {str(e)}")
@@ -447,7 +447,7 @@ async def confirm_charge(
     
     if success:
         # Redirect to admin dashboard
-        return RedirectResponse(url=f"/shopify/admin?shop={shop}&billing=success")
+        return RedirectResponse(url=f"/shopify/setup?shop={shop}&billing=success")
     else:
         # Redirect with error
         return RedirectResponse(url=f"/shopify/admin?shop={shop}&billing=failed")

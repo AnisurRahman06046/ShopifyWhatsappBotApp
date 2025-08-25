@@ -590,12 +590,12 @@ async def shopify_callback(
     <body>
         <div style="text-align: center; padding: 50px; font-family: -apple-system, sans-serif;">
             <h2>✅ Installation Successful!</h2>
-            <p>Redirecting to setup page...</p>
+            <p>Choose your plan to get started...</p>
         </div>
         <script>
-            // Redirect to the setup page
+            // Redirect to plan selection
             setTimeout(function() {{
-                window.location.href = '/shopify/setup?shop={shop}';
+                window.location.href = '/billing/select-plan?shop={shop}';
             }}, 1000);
         </script>
     </body>
