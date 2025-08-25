@@ -28,9 +28,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     LOG_LEVEL: str = "info"
-    
+
     # API Configuration
-    USE_GRAPHQL_API: bool = False  # Feature flag for GraphQL migration
+    USE_GRAPHQL_API: bool = True  # Feature flag for GraphQL migration
     SHOPIFY_API_VERSION: str = "2024-10"  # REST API version
     GRAPHQL_API_VERSION: str = "2025-01"  # GraphQL API version
 
