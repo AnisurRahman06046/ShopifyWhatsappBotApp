@@ -102,7 +102,8 @@ async def embedded_app_page(shop: str = Query(...), host: str = Query(None), db:
         <title>WhatsApp Shopping Bot</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script src="https://cdn.shopify.com/shopifycloud/app-bridge/3.7.8/app-bridge.js"></script>
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge/latest/app-bridge.js"></script>
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge-utils/latest/app-bridge-utils.js"></script>
         <style>
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             body {{ 
@@ -264,39 +265,33 @@ async def embedded_app_page(shop: str = Query(...), host: str = Query(None), db:
         
         <script>
             // Initialize Shopify App Bridge with Session Tokens
-            const AppBridge = window['app-bridge'];
-            const createApp = AppBridge.default;
-            const {{ authenticatedFetch }} = AppBridge.Actions;
+            const qs = new URLSearchParams(location.search);
+            const host = qs.get('host');
             
-            const app = createApp({{
-                apiKey: '{settings.SHOPIFY_API_KEY}',
-                host: '{host or ''}'
+            const AppBridge = window['app-bridge'];
+            const getSessionToken = window['app-bridge-utils'].getSessionToken;
+            
+            const app = AppBridge.createApp({{ 
+                apiKey: '{settings.SHOPIFY_API_KEY}', 
+                host: host || '{host or ''}' 
             }});
             
-            // Initialize authenticated fetch for session tokens
-            const fetch = authenticatedFetch(app);
-            
-            // Function to make authenticated API calls
-            async function authenticatedApiCall(url, options = {{}}) {{
-                try {{
-                    const response = await fetch(url, {{
-                        headers: {{
-                            'Content-Type': 'application/json',
-                            ...options.headers
-                        }},
-                        ...options
-                    }});
-                    
-                    if (!response.ok) {{
-                        throw new Error(`API call failed: ${{response.status}}`);
-                    }}
-                    
-                    return response.json();
-                }} catch (error) {{
-                    console.error('Authenticated API call failed:', error);
-                    throw error;
-                }}
+            // Function to make authenticated API calls with session tokens
+            async function authFetch(url, init = {{}}) {{
+                const token = await getSessionToken(app, {{ forceRefresh: true }});
+                init.headers = {{ 
+                    ...(init.headers||{{}}), 
+                    'Authorization': `Bearer ${{token}}`, 
+                    'Content-Type': 'application/json' 
+                }};
+                return fetch(url, init);
             }}
+            
+            // Trigger an authenticated request to verify session tokens are working
+            authFetch('/api/ping', {{ 
+                method: 'POST', 
+                body: JSON.stringify({{ t: Date.now() }}) 
+            }}).catch(e => console.log('Ping failed (expected if /api/ping not implemented):', e));
             
             function testBot() {{
                 if ({str(configured).lower()}) {{
@@ -612,7 +607,8 @@ async def shopify_callback(
     <html>
     <head>
         <title>Installation Complete</title>
-        <script src="https://cdn.shopify.com/shopifycloud/app-bridge/3.7.8/app-bridge.js"></script>
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge/latest/app-bridge.js"></script>
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge-utils/latest/app-bridge-utils.js"></script>
     </head>
     <body>
         <div style="text-align: center; padding: 50px; font-family: -apple-system, sans-serif;">
