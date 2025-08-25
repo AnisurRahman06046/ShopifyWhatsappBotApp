@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose Your Plan - WhatsApp Bot</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+    <style>
+        .plan-card {
+            transition: all 0.3s ease;
+        }
+        .plan-card:hover {
+            transform: translateY(-4px);
+        }
+        .popular-badge {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+        }
+        .enterprise-badge {
+            background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">Choose Your WhatsApp Commerce Plan</h1>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                Transform your Shopify store with WhatsApp integration. Browse products, manage cart, and complete orders - all through chat.
+            </p>
+        </div>
+
+        <!-- Plans Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+            <!-- Free Plan -->
+            <div class="plan-card bg-white rounded-2xl shadow-lg border-2 border-gray-200 overflow-hidden">
+                <div class="p-8">
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Free Plan</h3>
+                        <div class="text-4xl font-bold text-gray-900 mb-2">$0<span class="text-lg font-normal">/month</span></div>
+                        <p class="text-gray-600">Perfect for testing and small stores</p>
+                    </div>
+
+                    <div class="space-y-4 mb-8">
+                        <h4 class="font-semibold text-gray-900 mb-4">What's Included:</h4>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">100 WhatsApp messages per month</p>
+                                <p class="text-sm text-gray-500">Includes both incoming and outgoing messages</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">Product catalog browsing</p>
+                                <p class="text-sm text-gray-500">Browse categories and product listings via WhatsApp</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">Shopping cart functionality</p>
+                                <p class="text-sm text-gray-500">Add/remove items, quantity management, view cart</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">Secure Shopify checkout</p>
+                                <p class="text-sm text-gray-500">Direct integration with Shopify checkout system</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">Real-time product sync</p>
+                                <p class="text-sm text-gray-500">Automatic inventory, price, and product updates via GraphQL</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">Basic welcome message</p>
+                                <p class="text-sm text-gray-500">Customizable greeting for new customers</p>
+                            </div>
+                        </div>
+
+                        <!-- Coming Soon Features -->
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Order tracking</p>
+                                <p class="text-sm text-gray-500">Coming soon - Track order status via WhatsApp</p>
+                            </div>
+                        </div>
+
+                        <!-- Not Included Features -->
+                        <div class="flex items-start opacity-40">
+                            <div class="flex-shrink-0 w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 font-medium">Analytics dashboard</p>
+                                <p class="text-sm text-gray-400">Available in Basic plan</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="selectPlan('free')" class="w-full bg-gray-900 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-colors">
+                        Start Free
+                    </button>
+                </div>
+            </div>
+
+            <!-- Basic Plan -->
+            <div class="plan-card bg-white rounded-2xl shadow-xl border-2 border-blue-500 overflow-hidden relative">
+                <div class="popular-badge text-white text-center py-2 text-sm font-semibold">
+                    MOST POPULAR
+                </div>
+                <div class="p-8">
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Basic Plan</h3>
+                        <div class="text-4xl font-bold text-gray-900 mb-2">$4.99<span class="text-lg font-normal">/month</span></div>
+                        <p class="text-gray-600">Ideal for growing businesses</p>
+                    </div>
+
+                    <div class="space-y-4 mb-8">
+                        <h4 class="font-semibold text-gray-900 mb-4">Everything in Free Plan, plus:</h4>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">1,000 WhatsApp messages per month</p>
+                                <p class="text-sm text-gray-500">10x more messages than Free plan</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">Enhanced welcome messages</p>
+                                <p class="text-sm text-gray-500">More customization options and templates</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">Email support</p>
+                                <p class="text-sm text-gray-500">Priority support within 24 hours</p>
+                            </div>
+                        </div>
+
+                        <!-- Coming Soon Features -->
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Order tracking via WhatsApp</p>
+                                <p class="text-sm text-gray-500">Coming soon - Check order status through chat</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Basic analytics dashboard</p>
+                                <p class="text-sm text-gray-500">Coming soon - Message counts, basic metrics</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Order notifications</p>
+                                <p class="text-sm text-gray-500">Coming soon - Automatic order status updates</p>
+                            </div>
+                        </div>
+
+                        <!-- Not Included Features -->
+                        <div class="flex items-start opacity-40">
+                            <div class="flex-shrink-0 w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 font-medium">Advanced features</p>
+                                <p class="text-sm text-gray-400">Available in Premium plan</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="selectPlan('basic')" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
+                        Choose Basic
+                    </button>
+                </div>
+            </div>
+
+            <!-- Premium Plan -->
+            <div class="plan-card bg-white rounded-2xl shadow-lg border-2 border-gray-200 overflow-hidden relative">
+                <div class="enterprise-badge text-white text-center py-2 text-sm font-semibold">
+                    ENTERPRISE READY
+                </div>
+                <div class="p-8">
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Premium Plan</h3>
+                        <div class="text-4xl font-bold text-gray-900 mb-2">$79<span class="text-lg font-normal">/month</span></div>
+                        <p class="text-gray-600">For high-volume stores and advanced features</p>
+                    </div>
+
+                    <div class="space-y-4 mb-8">
+                        <h4 class="font-semibold text-gray-900 mb-4">Everything in Basic Plan, plus:</h4>
+                        
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-800 font-medium">10,000 WhatsApp messages per month</p>
+                                <p class="text-sm text-gray-500">Perfect for high-traffic stores</p>
+                            </div>
+                        </div>
+
+                        <!-- Coming Soon Features -->
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Advanced analytics dashboard</p>
+                                <p class="text-sm text-gray-500">Coming soon - Detailed conversation metrics and sales insights</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Priority support</p>
+                                <p class="text-sm text-gray-500">Coming soon - Fast response time, dedicated support</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Abandoned cart recovery</p>
+                                <p class="text-sm text-gray-500">Coming soon - Automatic follow-up messages</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Advanced product search</p>
+                                <p class="text-sm text-gray-500">Coming soon - Smart search and filtering</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Broadcast messaging</p>
+                                <p class="text-sm text-gray-500">Coming soon - Send promotions to customer lists</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start opacity-60">
+                            <div class="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mr-3 mt-0.5">
+                                <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 font-medium">Custom webhooks & API</p>
+                                <p class="text-sm text-gray-500">Coming soon - Advanced automation capabilities</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="selectPlan('premium')" class="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+                        Choose Premium
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Features Banner -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8">
+            <div class="flex items-center mb-4">
+                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                    <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-blue-900">Currently Available Features</h3>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div class="flex items-center text-blue-800">
+                    <svg class="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    Browse Categories
+                </div>
+                <div class="flex items-center text-blue-800">
+                    <svg class="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    Product Lists
+                </div>
+                <div class="flex items-center text-blue-800">
+                    <svg class="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    Add to Cart
+                </div>
+                <div class="flex items-center text-blue-800">
+                    <svg class="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    Place Order
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="text-center">
+            <h3 class="text-2xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h3>
+            <div class="max-w-2xl mx-auto text-left space-y-4">
+                <details class="bg-white rounded-lg border p-4">
+                    <summary class="cursor-pointer font-semibold text-gray-900">How does WhatsApp integration work?</summary>
+                    <p class="mt-2 text-gray-600">Customers can browse your entire Shopify catalog, add items to cart, and complete purchases directly through WhatsApp chat. No app downloads required!</p>
+                </details>
+                <details class="bg-white rounded-lg border p-4">
+                    <summary class="cursor-pointer font-semibold text-gray-900">What counts as a WhatsApp message?</summary>
+                    <p class="mt-2 text-gray-600">Both incoming (from customers) and outgoing (bot responses) messages count toward your monthly limit. Product images and cart updates are included.</p>
+                </details>
+                <details class="bg-white rounded-lg border p-4">
+                    <summary class="cursor-pointer font-semibold text-gray-900">Can I upgrade or downgrade anytime?</summary>
+                    <p class="mt-2 text-gray-600">Yes! You can change your plan anytime. Upgrades are immediate, downgrades take effect at your next billing cycle.</p>
+                </details>
+                <details class="bg-white rounded-lg border p-4">
+                    <summary class="cursor-pointer font-semibold text-gray-900">How is real-time sync powered?</summary>
+                    <p class="mt-2 text-gray-600">We use Shopify's latest GraphQL API with webhooks to ensure your WhatsApp catalog is always up-to-date with inventory, prices, and product changes.</p>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function selectPlan(planType) {
+            // Redirect to the existing pricing routes
+            window.location.href = `/${planType}`;
+        }
+    </script>
+</body>
+</html>
