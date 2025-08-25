@@ -430,8 +430,32 @@
 
     <script>
         function selectPlan(planType) {
-            // Redirect to the existing pricing routes
-            window.location.href = `/${planType}`;
+            const urlParams = new URLSearchParams(window.location.search);
+            const shop = urlParams.get('shop');
+            
+            if (!shop) {
+                alert('Store information missing. Please try again.');
+                return;
+            }
+            
+            // Get plan ID from database - we'll need to update this with actual plan IDs
+            // For now, redirect to the existing pricing routes as fallback
+            if (planType === 'free') {
+                // For free plan, we could directly activate it
+                fetch(`/billing/create-charge?shop=${shop}&plan_id=FREE_PLAN_ID`, { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            window.location.href = data.redirect_url || `/shopify/setup?shop=${shop}`;
+                        } else {
+                            window.location.href = `/free?shop=${shop}`;
+                        }
+                    })
+                    .catch(() => window.location.href = `/free?shop=${shop}`);
+            } else {
+                // For paid plans, redirect to pricing routes for now
+                window.location.href = `/${planType}?shop=${shop}`;
+            }
         }
     </script>
 </body>
