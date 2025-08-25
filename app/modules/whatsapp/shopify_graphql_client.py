@@ -97,11 +97,7 @@ class ShopifyGraphQLClient:
                       sku
                       inventoryQuantity
                       inventoryPolicy
-                      inventoryManagement
                       taxable
-                      requiresShipping
-                      weight
-                      weightUnit
                       position
                       availableForSale
                       createdAt
@@ -113,7 +109,6 @@ class ShopifyGraphQLClient:
                   edges {
                     node {
                       id
-                      legacyResourceId
                       altText
                       url
                       width
@@ -181,11 +176,7 @@ class ShopifyGraphQLClient:
                   sku
                   inventoryQuantity
                   inventoryPolicy
-                  inventoryManagement
                   taxable
-                  requiresShipping
-                  weight
-                  weightUnit
                   position
                   availableForSale
                   createdAt
@@ -197,7 +188,6 @@ class ShopifyGraphQLClient:
               edges {
                 node {
                   id
-                  legacyResourceId
                   altText
                   url
                   width
@@ -318,12 +308,12 @@ class ShopifyGraphQLClient:
                 "sku": variant_node.get("sku", ""),
                 "position": variant_node.get("position", 1),
                 "inventory_policy": variant_node.get("inventoryPolicy", "").lower(),
-                "inventory_management": variant_node.get("inventoryManagement"),
+                "inventory_management": None,  # Not available in GraphQL
                 "inventory_quantity": variant_node.get("inventoryQuantity", 0),
                 "taxable": variant_node.get("taxable", True),
-                "requires_shipping": variant_node.get("requiresShipping", True),
-                "weight": variant_node.get("weight", 0),
-                "weight_unit": variant_node.get("weightUnit", "kg"),
+                "requires_shipping": True,  # Default value
+                "weight": 0,  # Not available in GraphQL
+                "weight_unit": "kg",  # Default value
                 "created_at": variant_node.get("createdAt", ""),
                 "updated_at": variant_node.get("updatedAt", ""),
                 "admin_graphql_api_id": variant_node.get("id", ""),
@@ -339,7 +329,7 @@ class ShopifyGraphQLClient:
         for i, image_edge in enumerate(image_edges, 1):
             image_node = image_edge.get("node", {})
             rest_image = {
-                "id": int(image_node.get("legacyResourceId", 0)) if image_node.get("legacyResourceId") else 0,
+                "id": 0,  # legacyResourceId not available for images in GraphQL
                 "product_id": rest_product["id"],
                 "position": i,
                 "created_at": graphql_product.get("createdAt", ""),
