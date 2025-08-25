@@ -922,11 +922,11 @@ Need assistance? Contact our support team!"""
             await self.show_products(from_number)
 
     async def _create_draft_order_graphql(self, cart_items) -> str:
-        """Create draft order using GraphQL API (not deprecated REST)"""
+        """Create checkout URL using cart permalink (no special scopes needed)"""
         try:
+            # Method 1: Try draft order if we have the scope
             from .shopify_api_adapter import ShopifyAPIAdapter
             
-            # Create GraphQL-enabled API adapter
             adapter = ShopifyAPIAdapter(
                 store_url=self.store.store_url,
                 access_token=self.store.access_token,
@@ -941,15 +941,41 @@ Need assistance? Contact our support team!"""
                     "quantity": item['quantity']
                 })
             
-            # Create draft order via GraphQL
+            # Try GraphQL draft order first
             draft_order_data = {"lineItems": line_items}
             result = await adapter.create_draft_order(draft_order_data)
             
             if result and result.get("invoice_url"):
+                print("[INFO] ✅ Created checkout via GraphQL draft order")
                 return result["invoice_url"]
             
-            return None
-            
         except Exception as e:
-            print(f"[ERROR] Failed to create GraphQL draft order: {str(e)}")
-            return None
+            print(f"[WARNING] Draft order failed (scope issue): {str(e)}")
+        
+        # Method 2: Fallback to cart permalink (works with existing scopes)
+        try:
+            cart_url = self._create_cart_permalink(cart_items)
+            if cart_url:
+                print("[INFO] ✅ Created checkout via cart permalink")
+                return cart_url
+                
+        except Exception as e:
+            print(f"[ERROR] Cart permalink failed: {str(e)}")
+            
+        return None
+    
+    def _create_cart_permalink(self, cart_items) -> str:
+        """Create Shopify cart URL using cart permalinks (no API call needed)"""
+        
+        # Build cart URL with variant IDs and quantities
+        # Format: https://shop.myshopify.com/cart/variant_id:quantity,variant_id:quantity
+        
+        cart_params = []
+        for item in cart_items:
+            cart_params.append(f"{item['variant_id']}:{item['quantity']}")
+        
+        cart_string = ",".join(cart_params)
+        cart_url = f"https://{self.store.store_url}/cart/{cart_string}"
+        
+        print(f"[DEBUG] Generated cart URL: {cart_url}")
+        return cart_url
