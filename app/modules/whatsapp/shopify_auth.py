@@ -385,13 +385,12 @@ async def embedded_app_page(
         
         <script>
             // Initialize Shopify App Bridge (correct method for Shopify's checker)
-            const qs = new URLSearchParams(window.location.search);
-            const host = qs.get('host');
+            const host = new URLSearchParams(location.search).get('host');
             
             const {{createApp}} = window.appBridge;  
             const app = createApp({{
                 apiKey: '{settings.SHOPIFY_API_KEY}',
-                host: host || '{host or ''}'
+                host  // Let Shopify supply the host, no server fallback
             }});
             
             // Make app globally available for utils
@@ -418,19 +417,20 @@ async def embedded_app_page(
                 }}
             }}
             
-            // Generate activity for Shopify's checker - make an authenticated request
+            // Generate activity for Shopify's checker - make an authenticated request immediately
             setTimeout(async () => {{
                 try {{
-                    const response = await apiFetch('/shopify/api/status?shop={shop}');
+                    const shop = new URLSearchParams(location.search).get('shop');
+                    const response = await apiFetch(`/shopify/api/status?shop=${{shop}}`);
                     console.log('✅ Session token verification successful');
                     if (response.ok) {{
                         const data = await response.json();
-                        console.log('Status:', data);
+                        console.log('Shopify checker activity generated:', data);
                     }}
                 }} catch (error) {{
-                    console.log('Session token test failed (this is normal if endpoint not implemented):', error);
+                    console.log('Session token activity generation failed:', error);
                 }}
-            }}, 1000);
+            }}, 500);  // Reduced delay for faster checker detection
             
             // Test bot function using session tokens
             async function testBot() {{
