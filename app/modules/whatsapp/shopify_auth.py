@@ -383,10 +383,23 @@ async def embedded_app_page(
         </div>
         
         <script>
-            const host = new URLSearchParams(location.search).get('host');
-            const {{ createApp }} = window.appBridge;
-            const app = createApp({{ apiKey: '{settings.SHOPIFY_API_KEY}', host }});
-            window.app = app;
+            // Wait for App Bridge to load before initializing
+            function initializeAppBridge() {{
+                if (window.appBridge && window.appBridge.createApp) {{
+                    console.log('App Bridge loaded, initializing...');
+                    const host = new URLSearchParams(location.search).get('host');
+                    const {{ createApp }} = window.appBridge;
+                    const app = createApp({{ apiKey: '{settings.SHOPIFY_API_KEY}', host }});
+                    window.app = app;
+                    console.log('App Bridge initialized successfully');
+                }} else {{
+                    console.log('App Bridge not ready, retrying...');
+                    setTimeout(initializeAppBridge, 100);
+                }}
+            }}
+            
+            // Start initialization
+            initializeAppBridge();
         </script>
         
         <script>
