@@ -13,7 +13,7 @@ import hmac
 import hashlib
 from urllib.parse import urlencode
 import base64
-from jose import jwt
+import jwt  # PyJWT library
 import time
 import secrets
 import json
@@ -32,7 +32,7 @@ async def verify_session_token(request: Request):
     try:
         # For basic verification, we'll decode without signature verification
         # In production, you should verify against Shopify's JWKS
-        payload = jwt.get_unverified_claims(token)
+        payload = jwt.decode(token, options={"verify_signature": False})
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid session token: {str(e)}")
     
