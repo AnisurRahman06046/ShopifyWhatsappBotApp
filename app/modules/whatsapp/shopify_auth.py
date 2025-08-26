@@ -216,7 +216,7 @@ async def embedded_app_page(
         <title>WhatsApp Shopping Bot</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" onload="console.log('✅ App Bridge script loaded from CDN')" onerror="console.log('❌ App Bridge script failed to load')"></script>
         <style>
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             body {{ 
@@ -383,18 +383,26 @@ async def embedded_app_page(
         </div>
         
         <script>
-            // Wait for App Bridge to load before initializing
+            // Initialize App Bridge with timeout to prevent infinite retry
+            let retryCount = 0;
+            const maxRetries = 50; // 5 seconds max
+            
             function initializeAppBridge() {{
                 if (window.appBridge && window.appBridge.createApp) {{
-                    console.log('App Bridge loaded, initializing...');
+                    console.log('✅ App Bridge loaded, initializing...');
                     const host = new URLSearchParams(location.search).get('host');
                     const {{ createApp }} = window.appBridge;
                     const app = createApp({{ apiKey: '{settings.SHOPIFY_API_KEY}', host }});
                     window.app = app;
-                    console.log('App Bridge initialized successfully');
-                }} else {{
-                    console.log('App Bridge not ready, retrying...');
+                    console.log('✅ App Bridge initialized successfully');
+                }} else if (retryCount < maxRetries) {{
+                    retryCount++;
+                    console.log(`App Bridge not ready, retrying... (${{retryCount}}/${{maxRetries}})`);
                     setTimeout(initializeAppBridge, 100);
+                }} else {{
+                    console.log('⚠️ App Bridge failed to load after 5 seconds - continuing without it');
+                    // Create minimal app object for compatibility
+                    window.app = {{ apiKey: '{settings.SHOPIFY_API_KEY}' }};
                 }}
             }}
             
