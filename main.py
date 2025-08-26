@@ -1,6 +1,8 @@
 # main.py
 from fastapi import FastAPI, Request, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi import Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -28,6 +30,30 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+# Middleware for embedded app security headers
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    
+    # For embedded Shopify apps - allow framing by Shopify
+    if "/shopify/" in str(request.url):
+        # Remove any X-Frame-Options header
+        response.headers.pop("X-Frame-Options", None)
+        
+        # Set CSP to allow framing by Shopify
+        response.headers["Content-Security-Policy"] = (
+            "frame-ancestors 'self' https://admin.shopify.com https://*.myshopify.com; "
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com https://admin.shopify.com; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com; "
+            "style-src 'self' 'unsafe-inline';"
+        )
+        
+        # Ensure cookies work in iframe (though we use session tokens)
+        response.headers["SameSite"] = "None"
+        response.headers["Secure"] = "true"
+    
+    return response
 
 # Serve static HTML files
 app.mount("/static", StaticFiles(directory="static"), name="static")
