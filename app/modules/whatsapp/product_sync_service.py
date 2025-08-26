@@ -1,8 +1,8 @@
-import httpx
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from .product_repository import ProductRepository
 from .whatsapp_repository import ShopifyStoreRepository
+from .shopify_api_adapter import ShopifyAPIAdapter
 from typing import Dict, Any, List
 from datetime import datetime
 
@@ -34,8 +34,9 @@ class ProductSyncService:
                 store.id, "syncing", total_products=0, synced_products=0
             )
             
-            # Fetch all products from Shopify
-            all_products = await self._fetch_all_products(store_url, store.access_token)
+            # Fetch all products from Shopify using GraphQL
+            api_adapter = ShopifyAPIAdapter(store_url, store.access_token, use_graphql=True)
+            all_products = await api_adapter.fetch_all_products()
             
             if not all_products:
                 await self.product_repo.update_sync_status(
@@ -91,76 +92,7 @@ class ProductSyncService:
             
             return {"status": "error", "message": error_msg}
     
-    async def _fetch_all_products(self, store_url: str, access_token: str, limit: int = 50) -> List[Dict[str, Any]]:
-        """Fetch all products from Shopify API with pagination"""
-        
-        headers = {
-            "X-Shopify-Access-Token": access_token,
-            "Content-Type": "application/json"
-        }
-        
-        all_products = []
-        page_info = None
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            while True:
-                # Build URL with pagination - try different statuses
-                url = f"https://{store_url}/admin/api/2024-10/products.json?limit={limit}&status=active"
-                if page_info:
-                    url += f"&page_info={page_info}"
-                
-                try:
-                    print(f"[DEBUG] API call: {url}")
-                    print(f"[DEBUG] Headers: X-Shopify-Access-Token: {access_token[:10]}...")
-                    response = await client.get(url, headers=headers)
-                    
-                    print(f"[DEBUG] Response status: {response.status_code}")
-                    if response.status_code == 200:
-                        data = response.json()
-                        products = data.get("products", [])
-                        print(f"[DEBUG] Raw response products count: {len(products)}")
-                        
-                        if not products:
-                            print("[DEBUG] No products found, breaking loop")
-                            break
-                        
-                        all_products.extend(products)
-                        print(f"[INFO] Fetched {len(products)} products (total: {len(all_products)})")
-                        
-                        # Check for next page
-                        link_header = response.headers.get("Link", "")
-                        if "rel=\"next\"" in link_header:
-                            # Extract page_info from Link header
-                            for link in link_header.split(","):
-                                if "rel=\"next\"" in link:
-                                    next_url = link.split(";")[0].strip("<>")
-                                    if "page_info=" in next_url:
-                                        page_info = next_url.split("page_info=")[1].split("&")[0]
-                                    break
-                            else:
-                                break
-                        else:
-                            break
-                    
-                    elif response.status_code == 429:
-                        # Rate limited - wait and retry
-                        print("[WARNING] Rate limited, waiting 2 seconds...")
-                        await asyncio.sleep(2)
-                        continue
-                        
-                    else:
-                        print(f"[ERROR] Failed to fetch products: {response.status_code}")
-                        print(f"[ERROR] Response text: {response.text}")
-                        break
-                        
-                except Exception as e:
-                    print(f"[ERROR] Exception while fetching products: {str(e)}")
-                    break
-                
-                # Small delay to be nice to Shopify API
-                await asyncio.sleep(0.1)
-        
-        return all_products
+    # REST API method removed - now using GraphQL via adapter
     
     async def sync_single_product(self, store_url: str, shopify_product_id: str) -> Dict[str, Any]:
         """Sync a single product (used by webhooks)"""
@@ -169,36 +101,24 @@ class ProductSyncService:
         if not store or not store.access_token or store.access_token.startswith("UNINSTALLED"):
             return {"status": "error", "message": "Store not found or app uninstalled"}
         
-        headers = {
-            "X-Shopify-Access-Token": store.access_token,
-            "Content-Type": "application/json"
-        }
-        
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            try:
-                url = f"https://{store_url}/admin/api/2024-10/products/{shopify_product_id}.json"
-                response = await client.get(url, headers=headers)
+        try:
+            # Use GraphQL API via adapter
+            api_adapter = ShopifyAPIAdapter(store_url, store.access_token, use_graphql=True)
+            product_data = await api_adapter.fetch_single_product(shopify_product_id)
+            
+            if product_data:
+                await self.product_repo.create_or_update_product(store.id, product_data)
+                print(f"[INFO] Synced product {shopify_product_id} for store {store_url}")
+                return {"status": "success", "message": "Product synced"}
+            else:
+                # Product was deleted or not found
+                await self.product_repo.delete_product(store.id, shopify_product_id)
+                return {"status": "success", "message": "Product deleted"}
                 
-                if response.status_code == 200:
-                    product_data = response.json().get("product", {})
-                    await self.product_repo.create_or_update_product(store.id, product_data)
-                    print(f"[INFO] Synced product {shopify_product_id} for store {store_url}")
-                    return {"status": "success", "message": "Product synced"}
-                
-                elif response.status_code == 404:
-                    # Product was deleted
-                    await self.product_repo.delete_product(store.id, shopify_product_id)
-                    return {"status": "success", "message": "Product deleted"}
-                
-                else:
-                    error_msg = f"Failed to fetch product: {response.status_code}"
-                    print(f"[ERROR] {error_msg}")
-                    return {"status": "error", "message": error_msg}
-                    
-            except Exception as e:
-                error_msg = f"Exception syncing product: {str(e)}"
-                print(f"[ERROR] {error_msg}")
-                return {"status": "error", "message": error_msg}
+        except Exception as e:
+            error_msg = f"Exception syncing product: {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            return {"status": "error", "message": error_msg}
     
     async def health_check_product_count(self, store_url: str) -> Dict[str, Any]:
         """
@@ -215,20 +135,9 @@ class ProductSyncService:
             # Get count from our database
             db_count = await self.product_repo.get_store_product_count(store.id)
             
-            # Get count from Shopify (single API call)
-            headers = {
-                "X-Shopify-Access-Token": store.access_token,
-                "Content-Type": "application/json"
-            }
-            
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                url = f"https://{store_url}/admin/api/2024-10/products/count.json"
-                response = await client.get(url, headers=headers)
-                
-                if response.status_code != 200:
-                    return {"status": "error", "message": f"Failed to get Shopify count: {response.status_code}"}
-                
-                shopify_count = response.json().get("count", 0)
+            # Get count from Shopify using GraphQL API
+            api_adapter = ShopifyAPIAdapter(store_url, store.access_token, use_graphql=True)
+            shopify_count = await api_adapter.get_products_count()
             
             # Calculate mismatch percentage
             if shopify_count == 0:

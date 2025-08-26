@@ -54,66 +54,13 @@ class ShopifyAPIAdapter:
             
         except Exception as e:
             print(f"[ERROR] GraphQL product fetch failed: {str(e)}")
-            print(f"[INFO] Falling back to REST API")
-            return await self._fetch_products_rest(limit)
+            print(f"[ERROR] REST API removed - no fallback available")
+            return []
 
     async def _fetch_products_rest(self, limit: int = 50) -> List[Dict[str, Any]]:
-        """Fetch products using REST API (existing implementation)"""
-        
-        all_products = []
-        page_info = None
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            while True:
-                url = f"https://{self.store_url}/admin/api/{self.api_version}/products.json?limit={limit}&status=active"
-                if page_info:
-                    url += f"&page_info={page_info}"
-                
-                try:
-                    print(f"[DEBUG] REST API call: {url}")
-                    response = await client.get(url, headers=self.rest_headers)
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        products = data.get("products", [])
-                        
-                        if not products:
-                            break
-                        
-                        all_products.extend(products)
-                        print(f"[INFO] Fetched {len(products)} products via REST (total: {len(all_products)})")
-                        
-                        # Check for next page
-                        link_header = response.headers.get("Link", "")
-                        if "rel=\"next\"" in link_header:
-                            for link in link_header.split(","):
-                                if "rel=\"next\"" in link:
-                                    next_url = link.split(";")[0].strip("<>")
-                                    if "page_info=" in next_url:
-                                        page_info = next_url.split("page_info=")[1].split("&")[0]
-                                    break
-                            else:
-                                break
-                        else:
-                            break
-                    
-                    elif response.status_code == 429:
-                        print("[WARNING] REST API rate limited, waiting 2 seconds...")
-                        await asyncio.sleep(2)
-                        continue
-                        
-                    else:
-                        print(f"[ERROR] REST API failed: {response.status_code}")
-                        print(f"[ERROR] Response: {response.text}")
-                        break
-                        
-                except Exception as e:
-                    print(f"[ERROR] REST API exception: {str(e)}")
-                    break
-                
-                await asyncio.sleep(0.1)
-        
-        return all_products
+        """REST API method removed - migrated to GraphQL only"""
+        print(f"[INFO] REST API removed - using GraphQL fallback")
+        return await self._fetch_products_graphql(limit)
 
     async def fetch_single_product(self, shopify_product_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -141,7 +88,7 @@ class ShopifyAPIAdapter:
                     return await self._fetch_single_product_graphql(shopify_product_id)
                 else:
                     print(f"[ERROR] GraphQL single product fetch failed: {result}")
-                    return await self._fetch_single_product_rest(shopify_product_id)
+                    return None
             
             product = result.get("product")
             if not product:
@@ -154,33 +101,13 @@ class ShopifyAPIAdapter:
             
         except Exception as e:
             print(f"[ERROR] GraphQL single product exception: {str(e)}")
-            print(f"[INFO] Falling back to REST API")
-            return await self._fetch_single_product_rest(shopify_product_id)
+            print(f"[ERROR] REST API removed - no fallback available")
+            return None
 
     async def _fetch_single_product_rest(self, shopify_product_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch single product using REST API"""
-        
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            try:
-                url = f"https://{self.store_url}/admin/api/{self.api_version}/products/{shopify_product_id}.json"
-                response = await client.get(url, headers=self.rest_headers)
-                
-                if response.status_code == 200:
-                    product_data = response.json().get("product", {})
-                    print(f"[SUCCESS] Fetched single product via REST: {shopify_product_id}")
-                    return product_data
-                
-                elif response.status_code == 404:
-                    print(f"[INFO] Product not found via REST: {shopify_product_id}")
-                    return None
-                
-                else:
-                    print(f"[ERROR] REST single product failed: {response.status_code}")
-                    return None
-                    
-            except Exception as e:
-                print(f"[ERROR] REST single product exception: {str(e)}")
-                return None
+        """REST API method removed - migrated to GraphQL only"""
+        print(f"[INFO] REST API removed - using GraphQL fallback")
+        return await self._fetch_single_product_graphql(shopify_product_id)
 
     async def get_products_count(self) -> int:
         """
@@ -202,8 +129,8 @@ class ShopifyAPIAdapter:
             
             if "error" in result:
                 print(f"[ERROR] GraphQL count failed: {result}")
-                print(f"[INFO] Falling back to REST API")
-                return await self._get_products_count_rest()
+                print(f"[ERROR] REST API removed - no fallback available")
+                return 0
             
             count = result.get("products", {}).get("totalCount", 0)
             print(f"[SUCCESS] Got products count via GraphQL: {count}")
@@ -211,28 +138,13 @@ class ShopifyAPIAdapter:
             
         except Exception as e:
             print(f"[ERROR] GraphQL count exception: {str(e)}")
-            print(f"[INFO] Falling back to REST API")
-            return await self._get_products_count_rest()
+            print(f"[ERROR] REST API removed - no fallback available")
+            return 0
 
     async def _get_products_count_rest(self) -> int:
-        """Get products count using REST API"""
-        
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            try:
-                url = f"https://{self.store_url}/admin/api/{self.api_version}/products/count.json"
-                response = await client.get(url, headers=self.rest_headers)
-                
-                if response.status_code == 200:
-                    count = response.json().get("count", 0)
-                    print(f"[SUCCESS] Got products count via REST: {count}")
-                    return count
-                else:
-                    print(f"[ERROR] REST count failed: {response.status_code}")
-                    return 0
-                    
-            except Exception as e:
-                print(f"[ERROR] REST count exception: {str(e)}")
-                return 0
+        """REST API method removed - migrated to GraphQL only"""
+        print(f"[INFO] REST API removed - using GraphQL fallback")
+        return await self._get_products_count_graphql()
 
     def switch_to_graphql(self):
         """Switch to using GraphQL API"""
