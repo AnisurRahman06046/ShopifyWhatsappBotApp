@@ -38,8 +38,9 @@ async def add_security_headers(request: Request, call_next):
     
     # For embedded Shopify apps - allow framing by Shopify
     if "/shopify/" in str(request.url):
-        # Remove any X-Frame-Options header
-        response.headers.pop("X-Frame-Options", None)
+        # Remove any X-Frame-Options header (correct method for MutableHeaders)
+        if "X-Frame-Options" in response.headers:
+            del response.headers["X-Frame-Options"]
         
         # Set CSP to allow framing by Shopify
         response.headers["Content-Security-Policy"] = (
@@ -49,9 +50,9 @@ async def add_security_headers(request: Request, call_next):
             "style-src 'self' 'unsafe-inline';"
         )
         
-        # Ensure cookies work in iframe (though we use session tokens)
-        response.headers["SameSite"] = "None"
-        response.headers["Secure"] = "true"
+        # These headers don't work like this - remove them
+        # response.headers["SameSite"] = "None"
+        # response.headers["Secure"] = "true"
     
     return response
 
