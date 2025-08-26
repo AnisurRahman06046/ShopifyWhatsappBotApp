@@ -88,11 +88,32 @@ async def embedded_app_page(shop: str = Query(...), host: str = Query(None), db:
         # If store not found, redirect to installation
         return RedirectResponse(url=f"/shopify/install?shop={shop}")
     
-    configured = all([
+    # Check if WhatsApp is configured
+    whatsapp_configured = all([
         store.whatsapp_token,
         store.whatsapp_phone_number_id,
         store.whatsapp_verify_token
     ])
+    
+    # Check if billing is set up (for first-time users after installation)
+    from app.modules.billing.billing_service import BillingService
+    billing_service = BillingService(db)
+    subscription_status = await billing_service.get_subscription_status(store.id)
+    has_active_subscription = subscription_status.get("has_subscription", False)
+    
+    # If no active subscription, show billing setup first
+    if not has_active_subscription:
+        billing_setup_html = f"""
+        <div class="card">
+            <h3>🚀 Welcome to WhatsApp Shopping Bot!</h3>
+            <p>Choose your plan to get started with WhatsApp integration for your Shopify store.</p>
+            <div style="margin-top: 20px;">
+                <a href="/billing/select-plan?shop={shop}" class="button">Choose Plan & Get Started</a>
+            </div>
+        </div>
+        """
+    else:
+        billing_setup_html = ""
     
     # Embedded app HTML with proper Shopify App Bridge
     return HTMLResponse(content=f"""
@@ -215,8 +236,8 @@ async def embedded_app_page(shop: str = Query(...), host: str = Query(None), db:
                 <h1 style="color: #202223; font-size: 28px; display: inline-block;">
                     📱 WhatsApp Shopping Bot
                 </h1>
-                <span class="status-badge {'status-active' if configured else 'status-inactive'}">
-                    {'✅ Configured' if configured else '⚠️ Setup Required'}
+                <span class="status-badge {'status-active' if whatsapp_configured else 'status-inactive'}">
+                    {'✅ Configured' if whatsapp_configured else '⚠️ Setup Required'}
                 </span>
                 <p style="color: #637381; margin-top: 10px;">
                     Enable customers to shop directly through WhatsApp conversations
@@ -227,7 +248,7 @@ async def embedded_app_page(shop: str = Query(...), host: str = Query(None), db:
                 <div class="card">
                     <h3>⚙️ Configuration</h3>
                     <p style="color: #637381; margin-bottom: 15px;">
-                        {'Your WhatsApp bot is ready to receive messages!' if configured else 'Complete the setup to activate your WhatsApp bot'}
+                        {'Your WhatsApp bot is ready to receive messages!' if whatsapp_configured else 'Complete the setup to activate your WhatsApp bot'}
                     </p>
                     <div style="margin: 20px 0;">
                         <strong>WhatsApp Status:</strong> 
@@ -236,7 +257,7 @@ async def embedded_app_page(shop: str = Query(...), host: str = Query(None), db:
                         </span>
                     </div>
                     <a href="/shopify/setup?shop={shop}" class="button" target="_top">
-                        {'⚙️ Update Settings' if configured else '🚀 Complete Setup'}
+                        {'⚙️ Update Settings' if whatsapp_configured else '🚀 Complete Setup'}
                     </a>
                 </div>
                 
@@ -258,9 +279,11 @@ async def embedded_app_page(shop: str = Query(...), host: str = Query(None), db:
                     <a href="#" onclick="testBot(); return false;" class="button">🧪 Test Bot</a>
                     <a href="/shopify/support" class="button button-secondary" target="_blank">📚 Help</a>
                 </div>
+                
+                {billing_setup_html}
             </div>
             
-            {'<div class="card"><h3>✅ Your WhatsApp Bot is Active!</h3><div class="setup-steps"><h4>Share your WhatsApp number with customers:</h4><p><strong>WhatsApp Number:</strong> ' + (store.whatsapp_phone_number_id or 'Not configured') + '</p><p style="margin-top: 15px;">Customers can start shopping by sending any message to your WhatsApp Business number.</p></div></div>' if configured else '<div class="card"><h3>🚀 Getting Started</h3><div class="setup-steps"><h4>Complete these steps to activate your bot:</h4><ol><li>Click "Complete Setup" above</li><li>Enter your WhatsApp Business API credentials</li><li>Configure your webhook in Meta Business</li><li>Send a test message to verify everything works</li></ol></div></div>'}
+            {'<div class="card"><h3>✅ Your WhatsApp Bot is Active!</h3><div class="setup-steps"><h4>Share your WhatsApp number with customers:</h4><p><strong>WhatsApp Number:</strong> ' + (store.whatsapp_phone_number_id or 'Not configured') + '</p><p style="margin-top: 15px;">Customers can start shopping by sending any message to your WhatsApp Business number.</p></div></div>' if whatsapp_configured else '<div class="card"><h3>🚀 Getting Started</h3><div class="setup-steps"><h4>Complete these steps to activate your bot:</h4><ol><li>Click "Complete Setup" above</li><li>Enter your WhatsApp Business API credentials</li><li>Configure your webhook in Meta Business</li><li>Send a test message to verify everything works</li></ol></div></div>'}
         </div>
         
         <script>
@@ -618,8 +641,8 @@ async def shopify_callback(
     # Register webhooks for app lifecycle events
     await register_webhooks(shop, access_token)
     
-    # After successful installation, redirect to setup page
-    # Use a client-side redirect to ensure proper loading in Shopify admin
+    # After successful installation, redirect to main app UI (not billing first)
+    # This ensures Shopify's automated test sees the correct redirect
     return HTMLResponse(content=f"""
     <!DOCTYPE html>
     <html>
@@ -631,12 +654,12 @@ async def shopify_callback(
     <body>
         <div style="text-align: center; padding: 50px; font-family: -apple-system, sans-serif;">
             <h2>✅ Installation Successful!</h2>
-            <p>Choose your plan to get started...</p>
+            <p>Setting up your WhatsApp Bot...</p>
         </div>
         <script>
-            // Redirect to plan selection
+            // Redirect to main app UI in Shopify admin
             setTimeout(function() {{
-                window.location.href = '/billing/select-plan?shop={shop}';
+                window.top.location.href = 'https://admin.shopify.com/store/{shop.replace(".myshopify.com", "")}/apps/whizcart-social-commerce';
             }}, 1000);
         </script>
     </body>
