@@ -518,23 +518,41 @@ async def admin_dashboard(shop: str = Query(...), db: AsyncSession = Depends(get
 async def install_shopify_app(shop: str = Query(...)):
     """Initiate Shopify app installation"""
     
-    if not shop.endswith('.myshopify.com'):
-        raise HTTPException(status_code=400, detail="Invalid shop domain")
-    
-    # Generate nonce for security
-    nonce = secrets.token_urlsafe(32)
-    
-    # Build install URL
-    params = {
-        "client_id": settings.SHOPIFY_API_KEY,
-        "scope": settings.SHOPIFY_SCOPES,
-        "redirect_uri": f"{settings.REDIRECT_URI}/shopify/callback",
-        "state": nonce,
-        "grant_options[]": "per-user"
-    }
-    
-    install_url = f"https://{shop}/admin/oauth/authorize?" + urlencode(params)
-    return RedirectResponse(url=install_url)
+    try:
+        print(f"[INFO] Install request for shop: {shop}")
+        
+        if not shop.endswith('.myshopify.com'):
+            print(f"[ERROR] Invalid shop domain: {shop}")
+            raise HTTPException(status_code=400, detail="Invalid shop domain")
+        
+        # Check required settings
+        if not settings.SHOPIFY_API_KEY:
+            print("[ERROR] SHOPIFY_API_KEY not configured")
+            raise HTTPException(status_code=500, detail="App not properly configured")
+            
+        if not settings.REDIRECT_URI:
+            print("[ERROR] REDIRECT_URI not configured") 
+            raise HTTPException(status_code=500, detail="Redirect URI not configured")
+        
+        # Generate nonce for security
+        nonce = secrets.token_urlsafe(32)
+        
+        # Build install URL
+        params = {
+            "client_id": settings.SHOPIFY_API_KEY,
+            "scope": settings.SHOPIFY_SCOPES,
+            "redirect_uri": f"{settings.REDIRECT_URI}/shopify/callback",
+            "state": nonce,
+            "grant_options[]": "per-user"
+        }
+        
+        install_url = f"https://{shop}/admin/oauth/authorize?" + urlencode(params)
+        print(f"[INFO] Redirecting to: {install_url}")
+        return RedirectResponse(url=install_url)
+        
+    except Exception as e:
+        print(f"[ERROR] Install failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Installation error: {str(e)}")
 
 
 @router.get("/callback")

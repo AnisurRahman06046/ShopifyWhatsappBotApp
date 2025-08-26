@@ -32,6 +32,20 @@ app.add_middleware(
 # Serve static HTML files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Health check route for debugging
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "service": "WhatsApp Shopify Bot"}
+
+@app.get("/shopify/health")
+async def shopify_health():
+    from app.core.config import settings
+    return {
+        "status": "ok", 
+        "shopify_configured": bool(settings.SHOPIFY_API_KEY),
+        "redirect_uri": getattr(settings, 'REDIRECT_URI', None)
+    }
+
 # Include routers
 app.include_router(bot_router)
 
