@@ -391,14 +391,36 @@ async def embedded_app_page(
         
         <script>
             async function getSessionToken() {{
+                console.log('Attempting to get session token...');
+                
+                // Try modern method first
                 if (window.shopify && typeof window.shopify.idToken === 'function') {{
-                    return await window.shopify.idToken();         // modern App Bridge
+                    console.log('Using modern window.shopify.idToken()');
+                    return await window.shopify.idToken();
                 }}
+                
+                // Fallback: check if id_token is in URL (Shopify sometimes provides it directly)
+                const urlParams = new URLSearchParams(window.location.search);
+                const idToken = urlParams.get('id_token');
+                if (idToken) {{
+                    console.log('Using id_token from URL parameter');
+                    return idToken;
+                }}
+                
+                // Fallback to App Bridge utils if available  
+                if (window.app && window.appBridge && window.appBridge.getSessionToken) {{
+                    console.log('Using App Bridge getSessionToken fallback');
+                    return await window.appBridge.getSessionToken(window.app);
+                }}
+                
                 throw new Error('Session token provider not available');
             }}
 
             async function apiFetch(path, init = {{}}) {{
+                console.log('Making authenticated request to:', path);
                 const token = await getSessionToken();
+                console.log('Got session token, length:', token.length);
+                
                 return fetch(path, {{
                     ...init,
                     headers: {{ ...(init.headers||{{}}), Authorization: `Bearer ${{token}}` }},
@@ -407,10 +429,16 @@ async def embedded_app_page(
             }}
 
             // Fire one tokened request so the checker has data
-            (async () => {{
+            setTimeout(async () => {{
                 const shop = new URLSearchParams(location.search).get('shop');
-                try {{ await apiFetch(`/shopify/api/status?shop=${{shop}}`); }} catch {{}}
-            }})();
+                console.log('Firing session token request for shop:', shop);
+                try {{ 
+                    const response = await apiFetch(`/shopify/api/status?shop=${{shop}}`);
+                    console.log('✅ Session token request successful:', response.status);
+                }} catch (error) {{
+                    console.log('❌ Session token request failed:', error);
+                }}
+            }}, 1000); // Give App Bridge time to initialize
             
             // Test bot function using session tokens
             async function testBot() {{
