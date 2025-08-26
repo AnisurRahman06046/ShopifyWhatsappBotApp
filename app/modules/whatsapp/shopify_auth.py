@@ -216,7 +216,7 @@ async def embedded_app_page(
         <title>WhatsApp Shopping Bot</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" onload="console.log('✅ App Bridge script loaded from CDN')" onerror="console.log('❌ App Bridge script failed to load')"></script>
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js?apiKey={settings.SHOPIFY_API_KEY}"></script>
         <style>
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             body {{ 
@@ -383,96 +383,93 @@ async def embedded_app_page(
         </div>
         
         <script>
-            // Initialize App Bridge with timeout to prevent infinite retry
-            let retryCount = 0;
-            const maxRetries = 50; // 5 seconds max
-            
-            function initializeAppBridge() {{
-                if (window.appBridge && window.appBridge.createApp) {{
-                    console.log('✅ App Bridge loaded, initializing...');
-                    const host = new URLSearchParams(location.search).get('host');
-                    const {{ createApp }} = window.appBridge;
-                    const app = createApp({{ apiKey: '{settings.SHOPIFY_API_KEY}', host }});
-                    window.app = app;
-                    console.log('✅ App Bridge initialized successfully');
-                }} else if (retryCount < maxRetries) {{
-                    retryCount++;
-                    console.log(`App Bridge not ready, retrying... (${{retryCount}}/${{maxRetries}})`);
-                    setTimeout(initializeAppBridge, 100);
-                }} else {{
-                    console.log('⚠️ App Bridge failed to load after 5 seconds - continuing without it');
-                    // Create minimal app object for compatibility
-                    window.app = {{ apiKey: '{settings.SHOPIFY_API_KEY}' }};
-                }}
-            }}
-            
-            // Start initialization
-            initializeAppBridge();
-        </script>
-        
-        <script>
-            async function getSessionToken() {{
-                console.log('Attempting to get session token...');
+            (async () => {{
+                console.log('🚀 Starting modern App Bridge initialization...');
                 
-                // Try modern method first
-                if (window.shopify && typeof window.shopify.idToken === 'function') {{
-                    console.log('Using modern window.shopify.idToken()');
-                    return await window.shopify.idToken();
+                // 1) Ensure host param is present
+                const qs = new URLSearchParams(location.search);
+                const host = qs.get('host');
+                const shop = qs.get('shop');
+                
+                if (!host) {{
+                    console.log('⚠️ No host parameter found - app may not be embedded properly');
                 }}
                 
-                // Fallback: check if id_token is in URL (Shopify sometimes provides it directly)
-                const urlParams = new URLSearchParams(window.location.search);
-                const idToken = urlParams.get('id_token');
-                if (idToken) {{
-                    console.log('Using id_token from URL parameter');
-                    return idToken;
+                console.log('Shop:', shop, 'Host:', host);
+                
+                // 2) Wait for App Bridge and get ID token with exponential backoff
+                async function waitForAppBridgeAndIdToken(maxTries = 10) {{
+                    console.log('⏳ Waiting for App Bridge and idToken...');
+                    let tries = 0;
+                    
+                    while (tries < maxTries) {{
+                        if (window.shopify?.idToken && document.visibilityState === 'visible') {{
+                            try {{
+                                console.log(`✅ App Bridge ready (attempt ${{tries + 1}})`);
+                                const token = await window.shopify.idToken();
+                                if (token) {{
+                                    console.log('✅ Got ID token, length:', token.length);
+                                    return token;
+                                }}
+                            }} catch (e) {{
+                                console.log('❌ idToken() failed:', e);
+                            }}
+                        }} else {{
+                            console.log(`⏳ App Bridge not ready (attempt ${{tries + 1}}/${{maxTries}})`);
+                            console.log('- window.shopify:', !!window.shopify);
+                            console.log('- idToken method:', !!window.shopify?.idToken);
+                            console.log('- document visibility:', document.visibilityState);
+                        }}
+                        
+                        await new Promise(r => setTimeout(r, 150 * Math.pow(1.6, tries++)));
+                    }}
+                    
+                    throw new Error('App Bridge not ready for idToken()');
                 }}
                 
-                // Fallback to App Bridge utils if available  
-                if (window.app && window.appBridge && window.appBridge.getSessionToken) {{
-                    console.log('Using App Bridge getSessionToken fallback');
-                    return await window.appBridge.getSessionToken(window.app);
-                }}
-                
-                throw new Error('Session token provider not available');
-            }}
-
-            async function apiFetch(path, init = {{}}) {{
-                console.log('Making authenticated request to:', path);
-                const token = await getSessionToken();
-                console.log('Got session token, length:', token.length);
-                
-                return fetch(path, {{
-                    ...init,
-                    headers: {{ ...(init.headers||{{}}), Authorization: `Bearer ${{token}}` }},
-                    credentials: 'omit',
-                }});
-            }}
-
-            // Fire one tokened request so the checker has data
-            setTimeout(async () => {{
-                const shop = new URLSearchParams(location.search).get('shop');
-                console.log('Firing session token request for shop:', shop);
-                try {{ 
-                    const response = await apiFetch(`/shopify/api/status?shop=${{shop}}`);
-                    console.log('✅ Session token request successful:', response.status);
+                // 3) Get the ID token and make authenticated request
+                try {{
+                    const idToken = await waitForAppBridgeAndIdToken();
+                    
+                    // Make the authenticated request for Shopify's checker
+                    console.log('🔐 Making authenticated status request...');
+                    const response = await fetch(`/shopify/api/status?shop=${{encodeURIComponent(shop)}}`, {{
+                        headers: {{ Authorization: `Bearer ${{idToken}}` }},
+                        credentials: 'omit'
+                    }});
+                    
+                    if (response.ok) {{
+                        const data = await response.json();
+                        console.log('✅ Authenticated request successful:', data);
+                    }} else {{
+                        console.log('❌ Authenticated request failed:', response.status);
+                    }}
+                    
                 }} catch (error) {{
-                    console.log('❌ Session token request failed:', error);
+                    console.log('❌ Failed to initialize App Bridge or make authenticated request:', error);
                 }}
-            }}, 1000); // Give App Bridge time to initialize
+            }})();
             
-            // Test bot function using session tokens
+            // Test bot function using modern App Bridge
             async function testBot() {{
                 if ({str(whatsapp_configured).lower()}) {{
                     try {{
-                        const response = await apiFetch('/shopify/api/bot-test?shop={shop}', {{
-                            method: 'POST'
-                        }});
-                        
-                        if (response.ok) {{
-                            window.open('https://wa.me/{store.whatsapp_phone_number_id or ''}?text=Hi', '_blank');
+                        if (window.shopify?.idToken) {{
+                            const token = await window.shopify.idToken();
+                            const response = await fetch('/shopify/api/bot-test?shop={shop}', {{
+                                method: 'POST',
+                                headers: {{ Authorization: `Bearer ${{token}}` }},
+                                credentials: 'omit'
+                            }});
+                            
+                            if (response.ok) {{
+                                window.open('https://wa.me/{store.whatsapp_phone_number_id or ''}?text=Hi', '_blank');
+                            }} else {{
+                                alert('Bot test failed. Please check configuration.');
+                            }}
                         }} else {{
-                            alert('Bot test failed. Please check configuration.');
+                            // Fallback without session token
+                            window.open('https://wa.me/{store.whatsapp_phone_number_id or ''}?text=Hi', '_blank');
                         }}
                     }} catch (error) {{
                         window.open('https://wa.me/{store.whatsapp_phone_number_id or ''}?text=Hi', '_blank');
