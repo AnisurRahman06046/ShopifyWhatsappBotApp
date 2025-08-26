@@ -86,12 +86,29 @@ async def embedded_app_page(
 ):
     """Embedded app page for Shopify admin iframe"""
     
-    repo = ShopifyStoreRepository(db)
-    store = await repo.get_store_by_url(shop)
-    
-    if not store:
-        # If store not found, redirect to installation
-        return RedirectResponse(url=f"/shopify/install?shop={shop}")
+    try:
+        repo = ShopifyStoreRepository(db)
+        store = await repo.get_store_by_url(shop)
+        
+        if not store:
+            # If store not found, redirect to installation
+            return RedirectResponse(url=f"/shopify/install?shop={shop}")
+    except Exception as e:
+        print(f"[ERROR] Database error in embedded app: {e}")
+        # Return a simple error page instead of crashing
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Loading...</title></head>
+        <body>
+            <div style="text-align: center; padding: 50px; font-family: -apple-system, sans-serif;">
+                <h2>⚠️ Temporary Error</h2>
+                <p>Please refresh the page or try again in a moment.</p>
+                <a href="/shopify/install?shop={shop}" style="color: #007cba;">Reinstall App</a>
+            </div>
+        </body>
+        </html>
+        """, status_code=500)
     
     # Check if WhatsApp is configured
     whatsapp_configured = all([
@@ -103,8 +120,21 @@ async def embedded_app_page(
     # Check if billing is set up (for first-time users after installation)
     from app.modules.billing.billing_service import BillingService
     billing_service = BillingService(db)
-    subscription_status = await billing_service.get_subscription_status(store.id)
-    has_active_subscription = subscription_status.get("has_subscription", False)
+    
+    try:
+        # Get subscription status (convert UUID to string)
+        store_id_str = str(store.id)
+        subscription = await billing_service.get_store_subscription(store_id_str)
+        has_active_subscription = (
+            subscription is not None and 
+            hasattr(subscription, 'status') and
+            subscription.status == "active"
+        )
+        print(f"[DEBUG] Subscription check for {shop} (ID: {store_id_str}): {has_active_subscription}")
+    except Exception as e:
+        print(f"[ERROR] Failed to check subscription status for {shop}: {e}")
+        # For now, assume no subscription to show billing setup
+        has_active_subscription = False
     
     # Handle billing setup display based on subscription status and new installation
     if not has_active_subscription:
