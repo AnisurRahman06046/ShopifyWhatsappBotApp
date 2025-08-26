@@ -217,7 +217,6 @@ async def embedded_app_page(
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
-        <script src="https://cdn.shopify.com/shopifycloud/app-bridge-utils.js"></script>
         <style>
             * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             body {{ 
@@ -384,59 +383,39 @@ async def embedded_app_page(
         </div>
         
         <script>
-            // Initialize Shopify App Bridge (correct method for Shopify's checker)
             const host = new URLSearchParams(location.search).get('host');
-            
-            const {{createApp}} = window.appBridge;  
-            const app = createApp({{
-                apiKey: '{settings.SHOPIFY_API_KEY}',
-                host  // Let Shopify supply the host, no server fallback
-            }});
-            
-            // Make app globally available for utils
+            const {{ createApp }} = window.appBridge;
+            const app = createApp({{ apiKey: '{settings.SHOPIFY_API_KEY}', host }});
             window.app = app;
-            
-            // Session token authenticated fetch function
-            async function apiFetch(path, init = {{}}) {{
-                try {{
-                    const token = await window.appBridgeUtils.getSessionToken(window.app);
-                    
-                    return fetch(path, {{
-                        ...init,
-                        headers: {{
-                            ...(init.headers || {{}}),
-                            "Authorization": `Bearer ${{token}}`,
-                            "Content-Type": "application/json",
-                            "X-Requested-With": "XMLHttpRequest"
-                        }},
-                        credentials: "omit"  // Don't send cookies, use token instead
-                    }});
-                }} catch (error) {{
-                    console.error('API fetch error:', error);
-                    throw error;
+        </script>
+        
+        <script>
+            async function getSessionToken() {{
+                if (window.shopify && typeof window.shopify.idToken === 'function') {{
+                    return await window.shopify.idToken();         // modern App Bridge
                 }}
+                throw new Error('Session token provider not available');
             }}
-            
-            // Generate activity for Shopify's checker - make an authenticated request immediately
-            setTimeout(async () => {{
-                try {{
-                    const shop = new URLSearchParams(location.search).get('shop');
-                    const response = await apiFetch(`/shopify/api/status?shop=${{shop}}`);
-                    console.log('✅ Session token verification successful');
-                    if (response.ok) {{
-                        const data = await response.json();
-                        console.log('Shopify checker activity generated:', data);
-                    }}
-                }} catch (error) {{
-                    console.log('Session token activity generation failed:', error);
-                }}
-            }}, 500);  // Reduced delay for faster checker detection
+
+            async function apiFetch(path, init = {{}}) {{
+                const token = await getSessionToken();
+                return fetch(path, {{
+                    ...init,
+                    headers: {{ ...(init.headers||{{}}), Authorization: `Bearer ${{token}}` }},
+                    credentials: 'omit',
+                }});
+            }}
+
+            // Fire one tokened request so the checker has data
+            (async () => {{
+                const shop = new URLSearchParams(location.search).get('shop');
+                try {{ await apiFetch(`/shopify/api/status?shop=${{shop}}`); }} catch {{}}
+            }})();
             
             // Test bot function using session tokens
             async function testBot() {{
                 if ({str(whatsapp_configured).lower()}) {{
                     try {{
-                        // Use authenticated request to get bot status
                         const response = await apiFetch('/shopify/api/bot-test?shop={shop}', {{
                             method: 'POST'
                         }});
@@ -447,7 +426,6 @@ async def embedded_app_page(
                             alert('Bot test failed. Please check configuration.');
                         }}
                     }} catch (error) {{
-                        // Fallback to simple WhatsApp link
                         window.open('https://wa.me/{store.whatsapp_phone_number_id or ''}?text=Hi', '_blank');
                     }}
                 }} else {{

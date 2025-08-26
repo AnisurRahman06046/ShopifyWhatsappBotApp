@@ -3,7 +3,7 @@
 
 name = "WhizCart - Social Commerce"
 client_id = "{{ SHOPIFY_API_KEY }}"
-application_url = "https://sc.ecommercexpart.com"
+application_url = "https://sc.ecommercexpart.com/shopify/embedded"
 embedded = true
 handle = "whizcart-social-commerce"
 
