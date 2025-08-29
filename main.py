@@ -1974,7 +1974,6 @@ async def root(
                     <a href="/shopify/privacy">Privacy Policy</a>
                     <a href="/shopify/terms">Terms of Service</a>
                     <a href="/shopify/support">Help Center</a>
-                    <a href="/health">System Status</a>
                 </div>
                 <div class="footer-section">
                     <h4>Plans</h4>
