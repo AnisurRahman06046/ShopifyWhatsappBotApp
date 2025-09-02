@@ -824,12 +824,15 @@ async def shopify_callback(
             const isTest = {str(is_test_installation).lower()};
             
             setTimeout(function() {{
+                const shopName = '{shop}'.replace('.myshopify.com', '');
+                const host = btoa(`admin.shopify.com/store/${{shopName}}`);
+                
                 if (isTest) {{
                     // For test installations: redirect to main app UI (passes Shopify tests)
-                    window.top.location.href = 'https://admin.shopify.com/store/{shop.replace(".myshopify.com", "")}/apps/{settings.SHOPIFY_API_KEY}';
+                    window.top.location.href = `https://admin.shopify.com/store/${{shopName}}/apps/{settings.SHOPIFY_API_KEY}?shop={shop}&host=${{host}}`;
                 }} else {{
                     // For real merchants: go to embedded app which will prominently show billing
-                    window.top.location.href = 'https://admin.shopify.com/store/{shop.replace(".myshopify.com", "")}/apps/{settings.SHOPIFY_API_KEY}?new_install=true';
+                    window.top.location.href = `https://admin.shopify.com/store/${{shopName}}/apps/{settings.SHOPIFY_API_KEY}?shop={shop}&host=${{host}}&new_install=true`;
                 }}
             }}, 1500);
         </script>

@@ -306,6 +306,7 @@ async def root(
     embedded: str = Query(None),
 ):
     from fastapi.responses import HTMLResponse, RedirectResponse
+    from app.core.config import settings
 
     # If this is a Shopify app installation request (has shop parameter)
     if shop:
@@ -313,7 +314,22 @@ async def root(
 
         # Check if this is an embedded app request (coming from Shopify admin)
         if embedded == "1" or host:
-            # This is an embedded app request - show the embedded page
+            # Check if we have an active session for this shop
+            from app.core.database import get_async_db
+            from app.modules.whatsapp.whatsapp_repository import ShopifyStoreRepository
+            
+            async with get_async_db().__anext__() as db:
+                repo = ShopifyStoreRepository(db)
+                store = await repo.get_store_by_url(shop)
+                
+                # If no store found or access token is invalid, force OAuth reinstall
+                if not store or not store.access_token or store.access_token.startswith("UNINSTALLED"):
+                    print(f"[INFO] No valid session for {shop}, redirecting to OAuth")
+                    return RedirectResponse(
+                        url=f"/shopify/install?shop={shop}", status_code=302
+                    )
+            
+            # Valid session exists - show the embedded page
             return RedirectResponse(
                 url=f"/shopify/embedded?shop={shop}&host={host or ''}", status_code=302
             )
