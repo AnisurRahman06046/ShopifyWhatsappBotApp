@@ -826,10 +826,10 @@ async def shopify_callback(
             setTimeout(function() {{
                 if (isTest) {{
                     // For test installations: redirect to main app UI (passes Shopify tests)
-                    window.top.location.href = 'https://admin.shopify.com/store/{shop.replace(".myshopify.com", "")}/apps/whizcart-social-commerce';
+                    window.top.location.href = 'https://admin.shopify.com/store/{shop.replace(".myshopify.com", "")}/apps/{settings.SHOPIFY_API_KEY}';
                 }} else {{
                     // For real merchants: go to embedded app which will prominently show billing
-                    window.top.location.href = 'https://admin.shopify.com/store/{shop.replace(".myshopify.com", "")}/apps/whizcart-social-commerce?new_install=true';
+                    window.top.location.href = 'https://admin.shopify.com/store/{shop.replace(".myshopify.com", "")}/apps/{settings.SHOPIFY_API_KEY}?new_install=true';
                 }}
             }}, 1500);
         </script>
