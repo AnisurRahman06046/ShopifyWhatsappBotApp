@@ -315,10 +315,10 @@ async def root(
         # Check if this is an embedded app request (coming from Shopify admin)
         if embedded == "1" or host:
             # Check if we have an active session for this shop
-            from app.core.database import get_async_db
+            from app.core.database import AsyncSessionLocal
             from app.modules.whatsapp.whatsapp_repository import ShopifyStoreRepository
             
-            async with get_async_db().__anext__() as db:
+            async with AsyncSessionLocal() as db:
                 repo = ShopifyStoreRepository(db)
                 store = await repo.get_store_by_url(shop)
                 
