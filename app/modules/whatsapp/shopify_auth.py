@@ -1080,6 +1080,58 @@ async def setup_page(shop: str = Query(...), db: AsyncSession = Depends(get_asyn
     """)
 
 
+# Background processing function for webhooks
+async def process_product_sync_background(shop_domain: str, product_id: str, action: str):
+    """Process product sync in background to avoid webhook timeouts"""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from .product_repository import ProductRepository
+        
+        async with AsyncSessionLocal() as db:
+            if action in ["create", "update"]:
+                # Sync product from Shopify
+                sync_service = ProductSyncService(db)
+                result = await sync_service.sync_single_product(shop_domain, product_id)
+                
+                if result["status"] == "success":
+                    print(f"[BACKGROUND] ✅ Product {product_id} {action}d successfully")
+                else:
+                    print(f"[BACKGROUND] ❌ Failed to sync product {product_id}: {result['message']}")
+                    
+            elif action == "delete":
+                # Delete from database
+                product_repo = ProductRepository(db)
+                store_repo = ShopifyStoreRepository(db)
+                store = await store_repo.get_store_by_url(shop_domain)
+                
+                if store:
+                    await product_repo.delete_product(store.id, product_id)
+                    print(f"[BACKGROUND] ✅ Product {product_id} deleted from database")
+                    
+    except Exception as e:
+        print(f"[BACKGROUND] ❌ Error processing {action} for product {product_id}: {str(e)}")
+
+
+async def process_uninstall_background(shop_domain: str):
+    """Process app uninstall in background to avoid webhook timeouts"""
+    try:
+        from app.core.database import AsyncSessionLocal
+        
+        print(f"[BACKGROUND] Processing uninstall for: {shop_domain}")
+        
+        async with AsyncSessionLocal() as db:
+            repo = ShopifyStoreRepository(db)
+            success = await repo.mark_store_uninstalled_and_clear_credentials(shop_domain)
+            
+            if success:
+                print(f"[BACKGROUND] ✅ App uninstalled and credentials cleared for: {shop_domain}")
+            else:
+                print(f"[BACKGROUND] ⚠️ Store not found in database: {shop_domain}")
+                
+    except Exception as e:
+        print(f"[BACKGROUND] ❌ Error processing uninstall for {shop_domain}: {str(e)}")
+
+
 # GDPR and App Lifecycle Endpoints (Required by Shopify)
 
 @router.get("/test-credentials/{shop}")
@@ -1310,7 +1362,7 @@ async def manual_uninstall(shop: str = Query(...), db: AsyncSession = Depends(ge
 
 
 @router.post("/webhooks/app/uninstalled")
-async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async_db)):
+async def app_uninstalled(request: Request):
     """Handle app uninstallation webhook from Shopify"""
     
     print("[INFO] ========== APP UNINSTALL WEBHOOK RECEIVED ==========")
@@ -1346,64 +1398,40 @@ async def app_uninstalled(request: Request, db: AsyncSession = Depends(get_async
                 print("[ERROR] API secret required in production")
                 raise HTTPException(status_code=401, detail="Webhook secret not configured")
         
-        # Parse webhook data
+        # Parse webhook data quickly
         webhook_data = json.loads(body_str)
         
-        # Shopify sends different fields depending on the webhook version
-        # Try multiple possible field names
+        # Extract shop domain
         shop_domain = (
             webhook_data.get("domain") or 
             webhook_data.get("myshopify_domain") or
-            webhook_data.get("shop_domain") or
-            webhook_data.get("shop", {}).get("domain")
+            webhook_data.get("shop_domain")
         )
         
         if not shop_domain:
-            print(f"[ERROR] Could not find shop domain in webhook data")
-            print(f"[DEBUG] Webhook data keys: {list(webhook_data.keys())}")
-            # Try to extract from any URL fields
+            # Quick fallback extraction
             for key, value in webhook_data.items():
                 if isinstance(value, str) and ".myshopify.com" in value:
                     shop_domain = value.replace("https://", "").replace("http://", "").split("/")[0]
-                    print(f"[INFO] Extracted shop domain from {key}: {shop_domain}")
                     break
         
         if not shop_domain:
-            print(f"[ERROR] Unable to determine shop domain from webhook: {webhook_data}")
-            raise HTTPException(status_code=400, detail="Missing shop domain")
+            print(f"[ERROR] Unable to determine shop domain from webhook")
+            return {"status": "error", "message": "Missing shop domain"}
         
-        print(f"[INFO] Processing uninstall for store: {shop_domain}")
+        print(f"[INFO] Uninstall webhook for: {shop_domain}")
         
-        # Clean up store data
-        repo = ShopifyStoreRepository(db)
+        # Return 200 OK immediately to Shopify
+        # Process cleanup in background
+        import asyncio
+        asyncio.create_task(process_uninstall_background(shop_domain))
         
-        # Use the combined method to uninstall and clear credentials
-        success = await repo.mark_store_uninstalled_and_clear_credentials(shop_domain)
-        
-        if success:
-            print(f"[SUCCESS] ✅ App uninstalled and credentials cleared for: {shop_domain}")
-            print("[INFO] ========== UNINSTALL COMPLETE ==========")
-        else:
-            print(f"[WARNING] Store not found in database: {shop_domain}")
-            print("[INFO] ========== UNINSTALL COMPLETE (STORE NOT FOUND) ==========")
-        
-        # Always return 200 OK to Shopify
-        return {"status": "success", "message": "Webhook processed"}
-        
-    except json.JSONDecodeError as e:
-        print(f"[ERROR] Invalid JSON in webhook body: {str(e)}")
-        print("[INFO] ========== UNINSTALL FAILED (JSON ERROR) ==========")
-        # Still return 200 to prevent Shopify from retrying
-        return {"status": "error", "message": "Invalid JSON"}
+        return {"status": "success", "message": "Uninstall webhook queued"}
         
     except Exception as e:
-        print(f"[ERROR] Unexpected error in uninstall webhook: {str(e)}")
-        print(f"[DEBUG] Error type: {type(e).__name__}")
-        import traceback
-        print(f"[DEBUG] Traceback: {traceback.format_exc()}")
-        print("[INFO] ========== UNINSTALL FAILED (EXCEPTION) ==========")
-        # Still return 200 to prevent Shopify from retrying
-        return {"status": "error", "message": str(e)}
+        print(f"[ERROR] Uninstall webhook error: {str(e)}")
+        # Always return 200 to prevent Shopify retries
+        return {"status": "error", "message": "Webhook received"}
 
 
 @router.get("/gdpr/customers/data_request")
@@ -1725,118 +1753,98 @@ def verify_webhook_signature(body: bytes, signature: str) -> bool:
 # Product Webhook Handlers
 
 @router.post("/webhooks/products/create")
-async def product_created(request: Request, db: AsyncSession = Depends(get_async_db)):
+async def product_created(request: Request):
     """Handle product creation webhook from Shopify"""
-    
-    print("[INFO] ========== PRODUCT CREATE WEBHOOK ==========")
     
     try:
         body = await request.body()
-        body_str = body.decode('utf-8')
-        
-        print(f"[DEBUG] Product create headers: {dict(request.headers)}")
-        
-        # Parse product data
-        product_data = json.loads(body_str)
-        
-        # Get shop domain from headers
         shop_domain = request.headers.get("X-Shopify-Shop-Domain")
+        
         if not shop_domain:
             print("[ERROR] Missing shop domain in product webhook")
             return {"status": "error", "message": "Missing shop domain"}
         
-        print(f"[INFO] New product created: {product_data.get('title', 'Unknown')} for store {shop_domain}")
+        # Parse product data
+        product_data = json.loads(body.decode('utf-8'))
+        product_id = str(product_data["id"])
+        product_title = product_data.get('title', 'Unknown')
         
-        # Sync the new product
-        sync_service = ProductSyncService(db)
-        result = await sync_service.sync_single_product(shop_domain, str(product_data["id"]))
+        print(f"[INFO] Product created webhook: {product_title} (ID: {product_id}) for {shop_domain}")
         
-        if result["status"] == "success":
-            print(f"[SUCCESS] ✅ Product {product_data['id']} synced successfully")
-        else:
-            print(f"[ERROR] Failed to sync new product: {result['message']}")
+        # Return 200 OK immediately to Shopify
+        # Process in background using asyncio.create_task
+        import asyncio
+        asyncio.create_task(process_product_sync_background(shop_domain, product_id, "create"))
         
-        return {"status": "success", "message": "Product create webhook processed"}
+        return {"status": "success", "message": "Product webhook queued"}
         
     except Exception as e:
         print(f"[ERROR] Product create webhook failed: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        # Still return 200 to prevent Shopify retries
+        return {"status": "error", "message": "Webhook received"}
 
 
 @router.post("/webhooks/products/update")
-async def product_updated(request: Request, db: AsyncSession = Depends(get_async_db)):
+async def product_updated(request: Request):
     """Handle product update webhook from Shopify"""
-    
-    print("[INFO] ========== PRODUCT UPDATE WEBHOOK ==========")
     
     try:
         body = await request.body()
-        body_str = body.decode('utf-8')
-        
-        # Parse product data
-        product_data = json.loads(body_str)
-        
-        # Get shop domain from headers
         shop_domain = request.headers.get("X-Shopify-Shop-Domain")
+        
         if not shop_domain:
             print("[ERROR] Missing shop domain in product webhook")
             return {"status": "error", "message": "Missing shop domain"}
         
-        print(f"[INFO] Product updated: {product_data.get('title', 'Unknown')} for store {shop_domain}")
+        # Parse product data
+        product_data = json.loads(body.decode('utf-8'))
+        product_id = str(product_data["id"])
+        product_title = product_data.get('title', 'Unknown')
         
-        # Sync the updated product
-        sync_service = ProductSyncService(db)
-        result = await sync_service.sync_single_product(shop_domain, str(product_data["id"]))
+        print(f"[INFO] Product updated webhook: {product_title} (ID: {product_id}) for {shop_domain}")
         
-        if result["status"] == "success":
-            print(f"[SUCCESS] ✅ Product {product_data['id']} updated successfully")
-        else:
-            print(f"[ERROR] Failed to sync updated product: {result['message']}")
+        # Return 200 OK immediately to Shopify
+        # Process in background using asyncio.create_task
+        import asyncio
+        asyncio.create_task(process_product_sync_background(shop_domain, product_id, "update"))
         
-        return {"status": "success", "message": "Product update webhook processed"}
+        return {"status": "success", "message": "Product webhook queued"}
         
     except Exception as e:
         print(f"[ERROR] Product update webhook failed: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        # Still return 200 to prevent Shopify retries
+        return {"status": "error", "message": "Webhook received"}
 
 
 @router.post("/webhooks/products/delete")
-async def product_deleted(request: Request, db: AsyncSession = Depends(get_async_db)):
+async def product_deleted(request: Request):
     """Handle product deletion webhook from Shopify"""
-    
-    print("[INFO] ========== PRODUCT DELETE WEBHOOK ==========")
     
     try:
         body = await request.body()
-        body_str = body.decode('utf-8')
-        
-        # Parse product data
-        product_data = json.loads(body_str)
-        
-        # Get shop domain from headers
         shop_domain = request.headers.get("X-Shopify-Shop-Domain")
+        
         if not shop_domain:
             print("[ERROR] Missing shop domain in product webhook")
             return {"status": "error", "message": "Missing shop domain"}
         
-        print(f"[INFO] Product deleted: ID {product_data.get('id', 'Unknown')} for store {shop_domain}")
+        # Parse product data
+        product_data = json.loads(body.decode('utf-8'))
+        product_id = str(product_data["id"])
         
-        # Delete from our database
-        from .product_repository import ProductRepository
-        product_repo = ProductRepository(db)
+        print(f"[INFO] Product deleted webhook: ID {product_id} for {shop_domain}")
         
-        store_repo = ShopifyStoreRepository(db)
-        store = await store_repo.get_store_by_url(shop_domain)
+        # Return 200 OK immediately to Shopify
+        # Process in background using asyncio.create_task
+        import asyncio
+        asyncio.create_task(process_product_sync_background(shop_domain, product_id, "delete"))
         
-        if store:
-            await product_repo.delete_product(store.id, str(product_data["id"]))
-            print(f"[SUCCESS] ✅ Product {product_data['id']} deleted from database")
-        
-        return {"status": "success", "message": "Product delete webhook processed"}
+        return {"status": "success", "message": "Product webhook queued"}
         
     except Exception as e:
         print(f"[ERROR] Product delete webhook failed: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        # Still return 200 to prevent Shopify retries
+        return {"status": "error", "message": "Webhook received"}
 
 
 @router.post("/sync-products/{shop}")
