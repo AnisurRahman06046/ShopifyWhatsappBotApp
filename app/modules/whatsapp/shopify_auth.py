@@ -1132,6 +1132,49 @@ async def process_uninstall_background(shop_domain: str):
         print(f"[BACKGROUND] ❌ Error processing uninstall for {shop_domain}: {str(e)}")
 
 
+async def process_variant_stock_background(shop_domain: str, product_id: str, variant_id: str, action: str, inventory_quantity: int, webhook_id: str):
+    """Process variant stock changes in background to avoid webhook timeouts"""
+    try:
+        from app.core.database import AsyncSessionLocal
+        from .product_repository import ProductRepository
+        
+        print(f"[BACKGROUND] Processing variant {action}: {variant_id} for product {product_id} (quantity: {inventory_quantity})")
+        
+        async with AsyncSessionLocal() as db:
+            # Get store and update variant inventory
+            store_repo = ShopifyStoreRepository(db)
+            store = await store_repo.get_store_by_url(shop_domain)
+            
+            if store:
+                product_repo = ProductRepository(db)
+                
+                # Update variant inventory in database
+                if action == "in_stock":
+                    await product_repo.update_variant_inventory(store.id, variant_id, inventory_quantity, True)
+                    print(f"[BACKGROUND] ✅ Variant {variant_id} marked as in stock with quantity {inventory_quantity}")
+                    
+                elif action == "out_of_stock":
+                    await product_repo.update_variant_inventory(store.id, variant_id, 0, False)
+                    print(f"[BACKGROUND] ✅ Variant {variant_id} marked as out of stock")
+                
+                # Optional: Trigger product re-sync to ensure data consistency
+                sync_service = ProductSyncService(db)
+                sync_result = await sync_service.sync_single_product(shop_domain, product_id)
+                
+                if sync_result["status"] == "success":
+                    print(f"[BACKGROUND] ✅ Product {product_id} re-synced after variant stock change")
+                else:
+                    print(f"[BACKGROUND] ⚠️ Product re-sync failed: {sync_result.get('message')}")
+                    
+            else:
+                print(f"[BACKGROUND] ⚠️ Store not found: {shop_domain}")
+                
+    except Exception as e:
+        print(f"[BACKGROUND] ❌ Error processing variant {action} for {variant_id}: {str(e)}")
+        import traceback
+        print(f"[BACKGROUND] {traceback.format_exc()}")
+
+
 # GDPR and App Lifecycle Endpoints (Required by Shopify)
 
 @router.get("/test-credentials/{shop}")
@@ -1844,6 +1887,86 @@ async def product_deleted(request: Request):
     except Exception as e:
         print(f"[ERROR] Product delete webhook failed: {str(e)}")
         # Still return 200 to prevent Shopify retries
+        return {"status": "error", "message": "Webhook received"}
+
+
+@router.post("/webhooks/variants/in_stock")
+async def variant_in_stock(request: Request):
+    """Handle variant back in stock webhook from Shopify"""
+    
+    try:
+        body = await request.body()
+        signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
+        shop_domain = request.headers.get("X-Shopify-Shop-Domain")
+        webhook_id = request.headers.get("X-Shopify-Webhook-Id")
+        
+        # Verify webhook signature
+        if not verify_webhook_signature(body, signature):
+            print(f"[ERROR] Variant in_stock webhook signature verification failed for {shop_domain}")
+            return {"status": "error", "message": "Invalid signature"}
+        
+        if not shop_domain:
+            print("[ERROR] Missing shop domain in variant webhook")
+            return {"status": "error", "message": "Missing shop domain"}
+        
+        # Parse variant data
+        variant_data = json.loads(body.decode('utf-8'))
+        variant_id = str(variant_data.get("id", ""))
+        product_id = str(variant_data.get("product_id", ""))
+        inventory_quantity = variant_data.get("inventory_quantity", 0)
+        
+        print(f"[INFO] Variant in_stock webhook: Variant {variant_id} (Product {product_id}) back in stock ({inventory_quantity}) for {shop_domain}")
+        
+        # Return 200 OK immediately to Shopify (within 5 seconds)
+        # Process inventory update in background
+        import asyncio
+        asyncio.create_task(process_variant_stock_background(shop_domain, product_id, variant_id, "in_stock", inventory_quantity, webhook_id))
+        
+        return {"status": "success", "message": "Variant webhook queued"}
+        
+    except Exception as e:
+        print(f"[ERROR] Variant in_stock webhook failed: {str(e)}")
+        # Always return 200 to prevent Shopify retries
+        return {"status": "error", "message": "Webhook received"}
+
+
+@router.post("/webhooks/variants/out_of_stock")
+async def variant_out_of_stock(request: Request):
+    """Handle variant out of stock webhook from Shopify"""
+    
+    try:
+        body = await request.body()
+        signature = request.headers.get("X-Shopify-Hmac-Sha256", "")
+        shop_domain = request.headers.get("X-Shopify-Shop-Domain")
+        webhook_id = request.headers.get("X-Shopify-Webhook-Id")
+        
+        # Verify webhook signature
+        if not verify_webhook_signature(body, signature):
+            print(f"[ERROR] Variant out_of_stock webhook signature verification failed for {shop_domain}")
+            return {"status": "error", "message": "Invalid signature"}
+        
+        if not shop_domain:
+            print("[ERROR] Missing shop domain in variant webhook")
+            return {"status": "error", "message": "Missing shop domain"}
+        
+        # Parse variant data
+        variant_data = json.loads(body.decode('utf-8'))
+        variant_id = str(variant_data.get("id", ""))
+        product_id = str(variant_data.get("product_id", ""))
+        inventory_quantity = variant_data.get("inventory_quantity", 0)
+        
+        print(f"[INFO] Variant out_of_stock webhook: Variant {variant_id} (Product {product_id}) out of stock ({inventory_quantity}) for {shop_domain}")
+        
+        # Return 200 OK immediately to Shopify (within 5 seconds)
+        # Process inventory update in background
+        import asyncio
+        asyncio.create_task(process_variant_stock_background(shop_domain, product_id, variant_id, "out_of_stock", inventory_quantity, webhook_id))
+        
+        return {"status": "success", "message": "Variant webhook queued"}
+        
+    except Exception as e:
+        print(f"[ERROR] Variant out_of_stock webhook failed: {str(e)}")
+        # Always return 200 to prevent Shopify retries
         return {"status": "error", "message": "Webhook received"}
 
 
